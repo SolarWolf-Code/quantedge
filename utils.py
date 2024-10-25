@@ -57,13 +57,3 @@ def select_tickers(symbols, indicator_func, indicator_args, top_n, ascending=Fal
     selected_tickers = [ticker for ticker, _ in sorted_results[:top_n]]
     
     return selected_tickers
-
-def replace_symbol_in_feature(feature, symbol):
-    if isinstance(feature, dict):
-        return {k: replace_symbol_in_feature(v, symbol) for k, v in feature.items()}
-    elif isinstance(feature, list):
-        return [replace_symbol_in_feature(item, symbol) for item in feature]
-    elif feature == "SYMBOL":
-        return symbol
-    else:
-        return feature
