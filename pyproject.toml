@@ -1,0 +1,16 @@
+[project]
+name = "QuantEdge"
+version = "0.1.0"
+description = "A flexible, rule-based trading system for quantitative analysis and algorithmic trading strategies."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "scipy>=1.14.1",
+    "termcolor>=2.5.0",
+    "yfinance>=0.2.46",
+    "setuptools>=75.2.0",
+    "pandas-ta",
+]
+
+[tool.uv.sources]
+pandas-ta = { git = "https://github.com/twopirllc/pandas-ta" }
