@@ -58,18 +58,6 @@ def select_tickers(symbols, indicator_func, indicator_args, top_n, ascending=Fal
     
     return selected_tickers
 
-def filter_and_weight_tickers(tickers, *conditions):
-    weighted_tickers = {}
-    for ticker in tickers:
-        for condition in conditions:
-            feature = condition['feature']
-            weight = condition['weight']
-            feature_result = evaluate_feature(replace_symbol_in_feature(feature, ticker))
-            if feature_result:
-                weighted_tickers[ticker] = weight
-                break
-    return weighted_tickers
-
 def replace_symbol_in_feature(feature, symbol):
     if isinstance(feature, dict):
         return {k: replace_symbol_in_feature(v, symbol) for k, v in feature.items()}
@@ -79,6 +67,3 @@ def replace_symbol_in_feature(feature, symbol):
         return symbol
     else:
         return feature
-
-def evaluate_feature(feature):
-    return execute_function(feature)
