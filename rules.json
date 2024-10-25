@@ -1,201 +1,46 @@
 {
-    "rules": [
+  "feature": {
+    "utility": "compare",
+    "args": [
       {
-        "condition": {
-          "function": "compare",
-          "args": [
-            {
-              "function": "rsi",
-              "args": ["MSTY", 20]
-            },
-            "<",
-            30
-          ]
-        },
-        "action": {
-          "function": "buy_volatility",
-          "args": [["SPY", "TQQQ", "TSLA"], 15, false]
-        }
+        "indicator": "sma_price",
+        "args": ["SPY", 20]
       },
-      {
-        "condition": {
-          "function": "compare",
-          "args": [
-            {
-              "function": "macd",
-              "args": ["QQQ", 12, 26, 9]
-            },
-            "<",
-            0
-          ]
-        },
-        "action": {
-          "function": "buy_equal",
-          "args": [["QQQ", "AAPL", "MSFT"]]
-        }
-      },
-      {
-        "condition": {
-          "function": "compare",
-          "args": [
-            {
-              "function": "ema",
-              "args": ["MSFT", 50]
-            },
-            "<",
-            {
-              "function": "sma_price",
-              "args": ["MSFT", 200]
-            }
-          ]
-        },
-        "action": {
-          "function": "buy_weighted",
-          "args": [{"MSFT": 0.6, "AMZN": 0.4}]
-        }
-      },
-      {
-        "condition": {
-          "function": "compare",
-          "args": [
-            {
-              "function": "adx",
-              "args": ["AMZN", 14]
-            },
-            ">",
-            25
-          ]
-        },
-        "action": {
-          "function": "buy_weighted",
-          "args": [{"AMZN": 0.8, "TSLA": 0.2}]
-        }
-      },
-      {
-        "condition": {
-          "function": "compare",
-          "args": [
-            {
-              "function": "stochastic_oscillator",
-              "args": ["SPY", 20]
-            },
-            "<",
-            20
-          ]
-        },
-        "action": {
-          "function": "buy_equal",
-          "args": [["TSLA", "NVDA"]]
-        }
-      },
-      {
-        "condition": {
-          "function": "compare",
-          "args": [
-            {
-              "function": "standard_deviation_return",
-              "args": ["TSLA", 14]
-            },
-            "<",
-            0.01
-          ]
-        },
-        "action": {
-          "function": "buy_equal",
-          "args": [["TSLA", "NVDA"]]
-        }
-      },
-      {
-        "condition": {
-          "function": "compare",
-          "args": [
-            {
-              "function": "standard_deviation_price",
-              "args": ["NVDY", 14]
-            },
-            "<",
-            0.01
-          ]
-        },
-        "action": {
-          "function": "buy_equal",
-          "args": [["BTAL", "NVDA"]]
-        }
-      },
-      {
-        "condition": {
-          "function": "compare",
-          "args": [
-            {
-              "function": "fibonacci_retracement",
-              "args": ["SPY", 50]
-            },
-            ">",
-            0.382
-          ]
-        },
-        "action": {
-          "function": "buy_weighted",
-          "args": [{"SPY": 0.6, "IWM": 0.4}]
-        }
-      },
-      {
-        "condition": {
-          "function": "compare",
-          "args": [
-            {
-              "function": "sma_return",
-              "args": ["VTI", 20]
-            },
-            ">",
-            0.01
-          ]
-        },
-        "action": {
-          "function": "buy_equal",
-          "args": [["VTI", "VEA", "VWO"]]
-        }
-      },
-      {
-        "condition": {
-          "function": "compare",
-          "args": [
-            {
-              "function": "max_drawdown",
-              "args": ["QQQ", 30]
-            },
-            ">",
-            -0.1
-          ]
-        },
-        "action": {
-          "function": "buy_weighted",
-          "args": [{"QQQ": 0.7, "XLK": 0.3}]
-        }
-      },
-      {
-        "condition": {
-          "function": "compare",
-          "args": [
-            {
-              "function": "cumulative_return",
-              "args": ["DIA", 50]
-            },
-            ">",
-            0.05
-          ]
-        },
-        "action": {
-          "function": "buy_equal",
-          "args": [["DIA", "IWM", "SPY"]]
-        }
-      },
-      {
-        "condition": "else",
-        "action": {
-          "function": "buy_equal",
-          "args": [["VTI", "BND"]]
-        }
-      }
+      ">",
+      500
     ]
+  },
+  "left": {
+    "action": {
+      "type": "buy_equal",
+      "args": [
+        {
+          "utility": "select_tickers",
+          "args": [
+            [
+              "AAPL",
+              "MSFT",
+              "GOOGL",
+              "AMZN",
+              "META"
+            ],
+            {
+              "indicator": "rsi"
+            },
+            [
+              14
+            ],
+            3,
+            false
+          ]
+        }
+      ]
+    }
+  },
+  "right": {
+    "action": {
+      "type": "buy_equal",
+      "args": [["SPY"]]
+    }
   }
+}

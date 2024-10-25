@@ -1,6 +1,6 @@
 import json
 from indicators import *
-from utils import compare
+from utils import compare, select_tickers
 from buy_strategies import *
 from termcolor import colored
 
@@ -22,37 +22,65 @@ function_map = {
     'standard_deviation_return': standard_deviation_return,
     'stochastic_oscillator': stochastic_oscillator,
     'buy_volatility': buy_volatility,
+    'select_tickers': select_tickers,
 }
 
 def execute_function(func_data):
     if isinstance(func_data, dict):
-        if 'function' in func_data:
-            func_name = func_data['function']
+        if 'utility' in func_data:
+            func_name = func_data['utility']
             if func_name not in function_map:
                 raise ValueError(f"Function {func_name} not found")
             
             func = function_map[func_name]
             
-            args = [execute_function(arg) for arg in func_data['args']]
+            args = [execute_function(arg) for arg in func_data.get('args', [])]
+            
+            print(f"Executing: {colored(func_name, 'yellow')}")
+            result = func(*args)
+            return result
+        elif 'indicator' in func_data:
+            # For indicators, we don't execute them here, just return the dict
+            return func_data
+        elif 'type' in func_data:
+            func_name = func_data['type']
+            if func_name not in function_map:
+                raise ValueError(f"Function {func_name} not found")
+            
+            func = function_map[func_name]
+            
+            args = [execute_function(arg) for arg in func_data.get('args', [])]
             
             print(f"Executing: {colored(func_name, 'yellow')}")
             result = func(*args)
             return result
         else:
-            # If it's a dictionary without a 'function' key, return it as is
             return func_data
+    elif isinstance(func_data, list):
+        return [execute_function(item) for item in func_data]
     return func_data
 
-def evaluate_condition(condition):
-    if condition == "else":
-        return True
-    return execute_function(condition)
+def evaluate_feature(feature):
+    return execute_function(feature)
 
 def run_trading_system(rules):
-    for i, rule in enumerate(rules['rules'], 1):
-        if evaluate_condition(rule['condition']):
-            execute_function(rule['action'])
-            break  # Exit after first matching condition
+    def process_node(node):
+        if 'feature' in node:
+            condition = evaluate_feature(node['feature'])
+            if condition:
+                if 'left' in node:
+                    process_node(node['left'])
+                else:
+                    execute_function(node['action'])
+            else:
+                if 'right' in node:
+                    process_node(node['right'])
+                else:
+                    execute_function(node['action'])
+        else:
+            execute_function(node['action'])
+
+    process_node(rules)
 
 def load_rules(file_path):
     with open(file_path, 'r') as file:

@@ -20,7 +20,6 @@ def buy_equal(symbols):
     percentage = 100 / len(symbols)
 
     buy_string = ""
-    # check if there is only one symbol
     if len(symbols) == 1:
         buy_string = f"{termcolor.colored(symbols[0][0], 'magenta')} {percentage:.2f}% "
     else:
@@ -53,13 +52,10 @@ def volatility_weighting(symbols, period, inverse=True):
         volatilities[symbol] = volatility
 
     if inverse:
-        # Calculate inverse volatilities
         vols = {symbol: 1 / vol if vol != 0 and not pd.isna(vol) else 0 for symbol, vol in volatilities.items()}
     else:
-        # Use volatilities directly
         vols = volatilities
 
-    # Calculate weights
     total_vol = sum(vols.values())
     if total_vol == 0:
         print("Warning: All volatilities are zero or NaN. Using equal weights.")
