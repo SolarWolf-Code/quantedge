@@ -25,7 +25,7 @@
               "function": "macd",
               "args": ["QQQ", 12, 26, 9]
             },
-            ">",
+            "<",
             0
           ]
         },
@@ -39,30 +39,10 @@
           "function": "compare",
           "args": [
             {
-              "function": "bollinger_bands",
-              "args": ["AAPL", 20]
-            },
-            ">",
-            {
-              "function": "current_price",
-              "args": ["AAPL"]
-            }
-          ]
-        },
-        "action": {
-          "function": "buy_equal",
-          "args": [["AAPL", "GOOGL"]]
-        }
-      },
-      {
-        "condition": {
-          "function": "compare",
-          "args": [
-            {
               "function": "ema",
               "args": ["MSFT", 50]
             },
-            ">",
+            "<",
             {
               "function": "sma_price",
               "args": ["MSFT", 200]
@@ -113,10 +93,44 @@
           "function": "compare",
           "args": [
             {
+              "function": "standard_deviation_return",
+              "args": ["TSLA", 14]
+            },
+            "<",
+            0.01
+          ]
+        },
+        "action": {
+          "function": "buy_equal",
+          "args": [["TSLA", "NVDA"]]
+        }
+      },
+      {
+        "condition": {
+          "function": "compare",
+          "args": [
+            {
+              "function": "standard_deviation_price",
+              "args": ["NVDY", 14]
+            },
+            "<",
+            0.01
+          ]
+        },
+        "action": {
+          "function": "buy_equal",
+          "args": [["BTAL", "NVDA"]]
+        }
+      },
+      {
+        "condition": {
+          "function": "compare",
+          "args": [
+            {
               "function": "fibonacci_retracement",
               "args": ["SPY", 50]
             },
-            "<",
+            ">",
             0.382
           ]
         },

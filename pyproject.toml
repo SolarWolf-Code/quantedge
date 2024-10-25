@@ -10,6 +10,8 @@ dependencies = [
     "yfinance>=0.2.46",
     "setuptools>=75.2.0",
     "pandas-ta",
+    "psycopg2>=2.9.10",
+    "python-dotenv>=1.0.1",
 ]
 
 [tool.uv.sources]
