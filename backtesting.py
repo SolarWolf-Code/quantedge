@@ -6,6 +6,7 @@ from dateutil.relativedelta import relativedelta
 import pandas as pd
 import numpy as np
 import time
+import matplotlib.pyplot as plt
 
 class Portfolio:
     def __init__(self, starting_capital, monthly_investment, rules, end_date, start_date):
@@ -162,7 +163,8 @@ class Portfolio:
         stats = self.calculate_portfolio_stats()
         print("\nPortfolio Statistics:")
         print(stats.to_string())
-        
+
+        print(f"\nEnding Portfolio Value: ${self.get_value():.2f}")
         
         return self.daily_values
 
@@ -213,12 +215,50 @@ class Portfolio:
             price = df['close'].iloc[-1]
             total_value += shares * price
         return total_value
+    
+    def plot(self):
+        # Get SPY data for the same period
+        spy_data = load_daily_values(('SPY',), self.inital_start_date, self.inital_end_date)
+        spy_data['SPY'] = spy_data['SPY'].astype(float)
+        
+        # Calculate SPY portfolio value (if we had invested everything in SPY)
+        spy_shares = self.starting_capital / spy_data['SPY'].iloc[0]  # Initial shares bought
+        spy_portfolio_value = spy_shares * spy_data['SPY']
+        
+        # If there are monthly investments, add them
+        if self.monthly_investment > 0:
+            # Calculate monthly dates between start and end
+            monthly_dates = pd.date_range(self.inital_start_date, self.inital_end_date, freq='M')
+            for date in monthly_dates:
+                if date in spy_data.index:
+                    additional_shares = self.monthly_investment / spy_data.loc[date, 'SPY']
+                    spy_shares += additional_shares
+                    # Update all future values to reflect the new shares
+                    spy_portfolio_value[date:] = spy_shares * spy_data['SPY'][date:]
+        
+        # Get final values
+        portfolio_final = self.daily_values['portfolio_value'].iloc[-1]
+        spy_final = spy_portfolio_value.iloc[-1]
+        
+        # Create the plot
+        plt.figure(figsize=(12, 6))
+        self.daily_values['portfolio_value'].plot(label=f'Portfolio: ${portfolio_final:,.2f}')
+        spy_portfolio_value.plot(label=f'SPY: ${spy_final:,.2f}')
+        
+        plt.title('Portfolio Value Comparison')
+        plt.xlabel('Date')
+        plt.ylabel('Portfolio Value ($)')
+        plt.legend()
+        plt.grid(True)
+        
+        
+        plt.show()
 
 if __name__ == "__main__":
     start = time.time()
-    start_date = datetime(2024, 1, 1)
-    end_date = datetime(2024, 10, 1)
-    # end_date = datetime.now()
+    start_date = datetime(2000, 1, 1)
+    # end_date = datetime(2022, 1, 1)
+    end_date = datetime.now()
 
     starting_capital = 10000
     monthly_investment = 0
@@ -230,3 +270,4 @@ if __name__ == "__main__":
     
     end = time.time()
     print(f"Time taken: {end - start}")
+    portfolio.plot()
