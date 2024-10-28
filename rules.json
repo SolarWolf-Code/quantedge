@@ -3,21 +3,33 @@
   "rules": {
     "type": "condition",
     "indicator": {
-      "name": "cumulative_return",
+      "name": "sma_price",
       "params": [
-        8
+        50
       ],
-      "symbol": "SNYR"
+      "symbol": "DBC"
     },
-    "comparator": "<",
-    "value": 0.04,
+    "comparator": ">=",
+    "value": 22.69,
     "if_true": [
       {
         "type": "weight",
         "weight_type": "equal",
         "assets": [
           {
-            "symbol": "AAPL"
+            "symbol": "DBC"
+          },
+          {
+            "symbol": "USO"
+          },
+          {
+            "symbol": "UNG"
+          },
+          {
+            "symbol": "CORN"
+          },
+          {
+            "symbol": "SOYB"
           }
         ]
       }

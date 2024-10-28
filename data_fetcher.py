@@ -12,16 +12,16 @@ def get_price_data_as_dataframe(symbol):
 
     save_price_data(symbol, df)
 
-def load_historical_data(symbol, start_date=None, end_date=None):
+def load_historical_data(symbol, end_date=None):
     with get_db_connection() as conn:
         with conn.cursor() as cur:
-            if start_date and end_date:
+            if end_date:
                 cur.execute("""
                     SELECT date, open, high, low, close, adj_close, volume
                     FROM prices
-                    WHERE symbol = %s AND date BETWEEN %s AND %s
+                    WHERE symbol = %s AND date <= %s
                     ORDER BY date
-                """, (symbol, start_date, end_date))
+                """, (symbol, end_date))
             else:
                 cur.execute("""
                     SELECT date, open, high, low, close, adj_close, volume
@@ -33,9 +33,9 @@ def load_historical_data(symbol, start_date=None, end_date=None):
 
     if not data:
         get_price_data_as_dataframe(symbol)
-        df = load_historical_data(symbol, start_date, end_date)
-        if start_date and end_date:
-            df = df[(df.index.date >= start_date) & (df.index.date <= end_date)]
+        df = load_historical_data(symbol, end_date)
+        if end_date:
+            df = df[(df.index.date <= end_date.date())]
 
     else:
         df = pd.DataFrame(data, columns=['date', 'open', 'high', 'low', 'close', 'adj_close', 'volume'])
@@ -46,3 +46,18 @@ def load_historical_data(symbol, start_date=None, end_date=None):
         df['volume'] = df['volume'].astype(int)
     
     return df
+
+def load_daily_values(symbols, start_date, end_date):
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT date, symbol, adj_close
+                FROM prices
+                WHERE symbol IN %s AND date >= %s AND date <= %s
+            """, (tuple(symbols), start_date, end_date))
+            data = cur.fetchall()
+
+    df = pd.DataFrame(data, columns=['date', 'symbol', 'adj_close'])
+    # Pivot the DataFrame to have symbols as columns
+    df_pivoted = df.pivot(index='date', columns='symbol', values='adj_close')
+    return df_pivoted
