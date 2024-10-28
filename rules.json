@@ -1,46 +1,27 @@
 {
-  "feature": {
-    "utility": "compare",
-    "args": [
+  "name": "NASDAQ Mean Reversion",
+  "rules": {
+    "type": "condition",
+    "indicator": {
+      "name": "cumulative_return",
+      "params": [
+        8
+      ],
+      "symbol": "SNYR"
+    },
+    "comparator": "<",
+    "value": 0.04,
+    "if_true": [
       {
-        "indicator": "sma_price",
-        "args": ["SPY", 20]
-      },
-      ">",
-      500
-    ]
-  },
-  "left": {
-    "action": {
-      "type": "buy_equal",
-      "args": [
-        {
-          "utility": "select_tickers",
-          "args": [
-            [
-              "AAPL",
-              "MSFT",
-              "GOOGL",
-              "AMZN",
-              "META"
-            ],
-            {
-              "indicator": "rsi"
-            },
-            [
-              14
-            ],
-            3,
-            false
-          ]
-        }
-      ]
-    }
-  },
-  "right": {
-    "action": {
-      "type": "buy_equal",
-      "args": [["SPY"]]
-    }
+        "type": "weight",
+        "weight_type": "equal",
+        "assets": [
+          {
+            "symbol": "AAPL"
+          }
+        ]
+      }
+    ],
+    "if_false": []
   }
 }

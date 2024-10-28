@@ -2,9 +2,13 @@ import termcolor
 from data_fetcher import load_historical_data
 import pandas as pd
 
-def buy_weighted(weights):
-    if isinstance(weights, list) and len(weights) == 1 and isinstance(weights[0], dict):
-        weights = weights[0]
+def buy_weighted(assets):
+    """
+    Buy assets with specified weights
+    assets: list of dicts, each with 'symbol' and 'weight' keys
+    """
+    # Convert list of assets to dict of symbol: weight
+    weights = {asset['symbol']: asset['weight'] for asset in assets}
     
     total_weight = sum(weights.values())
     if abs(total_weight - 1.0) > 1e-6:  # Allow for small floating-point errors
@@ -16,18 +20,25 @@ def buy_weighted(weights):
         buy_string += f"{termcolor.colored(symbol, 'magenta')} {percentage:.2f}% "
     print(f"{termcolor.colored('Buying', 'green')} {buy_string}")
 
-def buy_equal(symbols):
+def buy_equal(assets):
+    """
+    Buy assets with equal weights
+    assets: list of dicts, each with 'symbol' key
+    """
+    symbols = [asset['symbol'] for asset in assets]
     percentage = 100 / len(symbols)
 
     buy_string = ""
-    if len(symbols) == 1:
-        buy_string = f"{termcolor.colored(symbols[0][0], 'magenta')} {percentage:.2f}% "
-    else:
-        for symbol in symbols:
-            buy_string += f"{termcolor.colored(symbol, 'magenta')} {percentage:.2f}% "
+    for symbol in symbols:
+        buy_string += f"{termcolor.colored(symbol, 'magenta')} {percentage:.2f}% "
     print(f"{termcolor.colored('Buying', 'green')} {buy_string}")
 
-def buy_volatility(symbols, period, inverse=True):
+def buy_volatility(assets, period, inverse=True):
+    """
+    Buy assets weighted by their volatility
+    assets: list of dicts, each with 'symbol' key
+    """
+    symbols = [asset['symbol'] for asset in assets]
     weights = volatility_weighting(symbols, period, inverse)
     
     buy_string = ""
@@ -40,6 +51,7 @@ def buy_volatility(symbols, period, inverse=True):
     return weights
 
 def volatility_weighting(symbols, period, inverse=True):
+    """Helper function for volatility-based weighting"""
     volatilities = {}
     for symbol in symbols:
         df = load_historical_data(symbol)

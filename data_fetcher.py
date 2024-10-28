@@ -11,7 +11,6 @@ def get_price_data_as_dataframe(symbol):
     df.rename(columns={"Open": "open", "High": "high", "Low": "low", "Close": "close", "Adj Close": "adj_close", "Volume": "volume"}, inplace=True)
 
     save_price_data(symbol, df)
-    return df
 
 def load_historical_data(symbol, start_date=None, end_date=None):
     with get_db_connection() as conn:
@@ -33,9 +32,11 @@ def load_historical_data(symbol, start_date=None, end_date=None):
             data = cur.fetchall()
 
     if not data:
-        df = get_price_data_as_dataframe(symbol)
+        get_price_data_as_dataframe(symbol)
+        df = load_historical_data(symbol, start_date, end_date)
         if start_date and end_date:
             df = df[(df.index.date >= start_date) & (df.index.date <= end_date)]
+
     else:
         df = pd.DataFrame(data, columns=['date', 'open', 'high', 'low', 'close', 'adj_close', 'volume'])
         df.set_index('date', inplace=True)

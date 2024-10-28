@@ -35,12 +35,12 @@ def save_price_data(symbol, df):
                 """, (
                     symbol,
                     index.date(),
-                    float(row['open']),
-                    float(row['high']),
-                    float(row['low']),
-                    float(row['close']),
-                    float(row['adj_close']),
-                    int(row['volume'])
+                    float(row['open'].iloc[0]),
+                    float(row['high'].iloc[0]),
+                    float(row['low'].iloc[0]),
+                    float(row['close'].iloc[0]),
+                    float(row['adj_close'].iloc[0]),
+                    int(row['volume'].iloc[0])
                 ))
 
             conn.commit()

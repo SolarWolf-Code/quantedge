@@ -3,7 +3,7 @@ name = "QuantEdge"
 version = "0.1.0"
 description = "A flexible, rule-based trading system for quantitative analysis and algorithmic trading strategies."
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = "==3.10.15"
 dependencies = [
     "scipy>=1.14.1",
     "termcolor>=2.5.0",
@@ -13,6 +13,7 @@ dependencies = [
     "psycopg2>=2.9.10",
     "python-dotenv>=1.0.1",
     "snakeviz>=2.2.0",
+    "backtrader>=1.9.78.123",
 ]
 
 [tool.uv.sources]

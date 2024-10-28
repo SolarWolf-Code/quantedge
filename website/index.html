@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Strategy Builder</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="strategy-name">
+            <input type="text" placeholder="Strategy Name" value="NASDAQ Mean Reversion">
+        </div>
+
+        <div id="strategy-root">
+            <div class="block root-block">
+                <div class="block-content if-block">
+                    <span>IF</span>
+                    <select class="indicator-type" onchange="updateIndicatorParams(this)">
+                        <option value="cumulative_return">Cumulative Return</option>
+                        <option value="rsi">RSI</option>
+                        <option value="sma_price">SMA Price</option>
+                        <option value="macd">MACD</option>
+                        <option value="ema">EMA</option>
+                        <option value="fibonacci">Fibonacci</option>
+                    </select>
+                    <div class="indicator-params">
+                        <input type="number" value="5" style="width: 40px">
+                        <span>d of</span>
+                    </div>
+                    <input type="text" value="QQQ" style="width: 60px">
+                    <span>is</span>
+                    <select class="comparator">
+                        <option value="<">less than</option>
+                        <option value=">">greater than</option>
+                        <option value="==">equal to</option>
+                        <option value=">=">greater or equal</option>
+                        <option value="<=">less or equal</option>
+                    </select>
+                    <input type="number" value="5" style="width: 50px">
+                    <span>%</span>
+                </div>
+                <div class="branches">
+                    <div class="left-branch">
+                        <button class="add-block" onclick="showBlockMenu(event, 'left')">+</button>
+                    </div>
+                    <div class="right-branch">
+                        <div class="block-content else-block">
+                            <span>ELSE</span>
+                        </div>
+                        <button class="add-block" onclick="showBlockMenu(event, 'right')">+</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="json-container">
+            <button id="copy-json" class="copy-button">Copy</button>
+            <textarea id="json-output" readonly></textarea>
+        </div>
+    </div>
+
+    <div class="block-menu" id="block-menu">
+        <button class="weight" onclick="addBlock('weight')">WEIGHT</button>
+        <button class="if" onclick="addBlock('if')">IF</button>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

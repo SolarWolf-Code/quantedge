@@ -25,7 +25,6 @@ def macd(symbol, fast_period, slow_period, signal_period):
 def sma_price(symbol, period):
     df = load_historical_data(symbol)
     result = df.ta.sma(length=period).iloc[-1]
-    print(symbol, result)
     return result
 
 def fibonacci_retracement(symbol, period):
