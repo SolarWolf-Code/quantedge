@@ -1,6 +1,6 @@
 from datetime import datetime
 from trading_system import load_rules, run_trading_system
-from data_fetcher import load_historical_data, load_daily_values
+from data_fetcher import load_historical_data, load_daily_values, get_earliest_date
 import termcolor
 from dateutil.relativedelta import relativedelta
 import pandas as pd

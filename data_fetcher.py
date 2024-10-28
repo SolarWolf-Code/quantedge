@@ -3,6 +3,17 @@ import yfinance as yf
 import pandas as pd
 from database import get_db_connection, save_price_data
 
+
+@lru_cache(maxsize=128)
+def get_earliest_date(symbol):
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT MIN(date) FROM prices WHERE symbol = %s
+            """, (symbol,))
+            earliest_date = cur.fetchone()[0]
+    return earliest_date
+
 def get_price_data_as_dataframe(symbol):
     print(f"Fetching data for symbol: {symbol}...")
     df = yf.download(symbol, progress=False)
