@@ -13,7 +13,6 @@ dependencies = [
     "psycopg2>=2.9.10",
     "python-dotenv>=1.0.1",
     "snakeviz>=2.2.0",
-    "backtrader>=1.9.78.123",
 ]
 
 [tool.uv.sources]
