@@ -20,16 +20,13 @@ class Portfolio:
         self.min_cash = 5
         self.inital_start_date = start_date
         self.inital_end_date = end_date
-
-        
-        # New: Create DataFrame to track daily portfolio values
         self.daily_values = pd.DataFrame(columns=['date', 'portfolio_value', 'cash'])
         self.daily_values.set_index('date', inplace=True)
         
     def calculate_portfolio_stats(self):
         """Calculate various portfolio performance metrics"""
         # Calculate daily returns
-        self.daily_values['daily_return'] = self.daily_values['portfolio_value'].pct_change()
+        self.daily_values['daily_return'] = self.daily_values['portfolio_value'].pct_change(fill_method=None)
         
         # Risk-free rate (using 2% annual as example)
         risk_free_rate = 0.02
@@ -67,10 +64,10 @@ class Portfolio:
         # Get SPY data for the same period
         spy_data = load_daily_values(('SPY',), self.inital_start_date, self.inital_end_date)
         # Convert to float type before calculations
-        spy_returns = spy_data['SPY'].astype(float).pct_change()
+        spy_returns = spy_data['SPY'].astype(float).pct_change(fill_method=None)
         
         # Calculate portfolio and market covariance
-        portfolio_returns = self.daily_values['portfolio_value'].astype(float).pct_change()
+        portfolio_returns = self.daily_values['portfolio_value'].astype(float).pct_change(fill_method=None)
         covariance = portfolio_returns.cov(spy_returns)
         market_variance = spy_returns.var()
         
@@ -127,7 +124,7 @@ class Portfolio:
         cost = price * quantity
         self.cash -= cost
         self.shares[symbol] = self.shares.get(symbol, 0) + quantity
-        print(f"{termcolor.colored('Bought', 'green')} {termcolor.colored(symbol, 'magenta')} {quantity:.2f} shares")
+        print(f"{termcolor.colored('Bought', 'green')} {termcolor.colored(symbol, 'magenta')} {quantity:.2f} shares @ ${price:.2f}")
 
 
     def get_annualized_return(self):
@@ -216,8 +213,8 @@ class Portfolio:
             total_value += shares * price
         return total_value
     
-    def plot(self):
-        # Get SPY data for the same period
+    def spy_stats(self):
+        """Calculate SPY comparison statistics"""
         spy_data = load_daily_values(('SPY',), self.inital_start_date, self.inital_end_date)
         spy_data['SPY'] = spy_data['SPY'].astype(float)
         
@@ -236,27 +233,48 @@ class Portfolio:
                     # Update all future values to reflect the new shares
                     spy_portfolio_value[date:] = spy_shares * spy_data['SPY'][date:]
         
-        # Get final values
-        portfolio_final = self.daily_values['portfolio_value'].iloc[-1]
-        spy_final = spy_portfolio_value.iloc[-1]
+        return {
+            'spy_values': spy_portfolio_value,
+            'spy_final_value': float(spy_portfolio_value.iloc[-1]),
+            'spy_initial_value': float(spy_portfolio_value.iloc[0])
+        }
+
+    def get_total_stats(self):
+        """Get all portfolio statistics including SPY comparison"""
+        # Get portfolio stats
+        portfolio_stats = self.calculate_portfolio_stats()
+        
+        # Get SPY comparison stats
+        spy_data = self.spy_stats()
+        
+        # Combine all stats
+        total_stats = {
+            'portfolio_stats': portfolio_stats.to_dict(),
+            'spy_stats': spy_data,
+            'daily_values': self.daily_values
+        }
+        
+        return total_stats
+
+    def plot(self):
+        """Plot portfolio performance vs SPY"""
+        stats = self.get_total_stats()
         
         # Create the plot
         plt.figure(figsize=(12, 6))
-        self.daily_values['portfolio_value'].plot(label=f'Portfolio: ${portfolio_final:,.2f}')
-        spy_portfolio_value.plot(label=f'SPY: ${spy_final:,.2f}')
+        self.daily_values['portfolio_value'].plot(label=f'Portfolio: ${stats["spy_stats"]["spy_final_value"]:,.2f}')
+        stats['spy_stats']['spy_values'].plot(label=f'SPY: ${stats["spy_stats"]["spy_final_value"]:,.2f}')
         
         plt.title('Portfolio Value Comparison')
         plt.xlabel('Date')
         plt.ylabel('Portfolio Value ($)')
         plt.legend()
         plt.grid(True)
-        
-        
         plt.show()
 
 if __name__ == "__main__":
     start = time.time()
-    start_date = datetime(2000, 1, 1)
+    start_date = datetime(2019, 1, 1)
     # end_date = datetime(2022, 1, 1)
     end_date = datetime.now()
 

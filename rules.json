@@ -5,35 +5,39 @@
     "indicator": {
       "name": "sma_price",
       "params": [
-        50
+        1
       ],
-      "symbol": "DBC"
+      "symbol": "SPXL"
     },
     "comparator": ">=",
-    "value": 22.69,
+    "value": 0,
     "if_true": [
       {
         "type": "weight",
         "weight_type": "equal",
         "assets": [
           {
-            "symbol": "DBC"
+            "symbol": "TQQQ"
           },
           {
-            "symbol": "USO"
-          },
-          {
-            "symbol": "UNG"
-          },
-          {
-            "symbol": "CORN"
-          },
-          {
-            "symbol": "SOYB"
+            "symbol": "BTAL"
           }
         ]
       }
     ],
-    "if_false": []
+    "if_false": [
+      {
+        "type": "weight",
+        "weight_type": "equal",
+        "assets": [
+          {
+            "symbol": "BTAL"
+          },
+          {
+            "symbol": "TQQQ"
+          }
+        ]
+      }
+    ]
   }
 }

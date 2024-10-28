@@ -8,10 +8,29 @@ from database import get_db_connection, save_price_data
 def get_earliest_date(symbol):
     with get_db_connection() as conn:
         with conn.cursor() as cur:
+            # First check if symbol exists in symbols table
+            cur.execute("""
+                SELECT EXISTS (
+                    SELECT 1 FROM symbols WHERE symbol = %s
+                ) as symbol_exists,
+                EXISTS (
+                    SELECT 1 FROM prices WHERE symbol = %s
+                ) as prices_exist
+            """, (symbol, symbol))
+            result = cur.fetchone()
+            symbol_exists, prices_exist = result
+            
+            if symbol_exists and not prices_exist:
+                # Symbol exists but no price data - fetch it
+                print(f"Symbol {symbol} exists but has no price data. Fetching...")
+                get_price_data_as_dataframe(symbol)
+            
+            # Now get the earliest date
             cur.execute("""
                 SELECT MIN(date) FROM prices WHERE symbol = %s
             """, (symbol,))
             earliest_date = cur.fetchone()[0]
+            
     return earliest_date
 
 def get_price_data_as_dataframe(symbol):
@@ -76,6 +95,7 @@ def load_daily_values(symbols, start_date, end_date):
 def _load_daily_values(symbols, start_date, end_date):
     with get_db_connection() as conn:
         with conn.cursor() as cur:
+            # Now get all the price data
             cur.execute("""
                 SELECT date, symbol, adj_close
                 FROM prices

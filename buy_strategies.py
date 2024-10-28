@@ -18,8 +18,6 @@ def buy_weighted(assets, purchases):
     for symbol, weight in weights.items():
         percentage = weight
         purchases[symbol] = percentage
-        # buy_string += f"{termcolor.colored(symbol, 'magenta')} {percentage*100:.2f}% "
-    # print(f"{termcolor.colored('Buying', 'green')} {buy_string}")
     
 
 def buy_equal(assets, purchases):
@@ -33,8 +31,6 @@ def buy_equal(assets, purchases):
     buy_string = ""
     for symbol in symbols:
         purchases[symbol] = percentage / 100
-        # buy_string += f"{termcolor.colored(symbol, 'magenta')} {percentage:.2f}% "
-    # print(f"{termcolor.colored('Buying', 'green')} {buy_string}")
 
 # def buy_volatility(assets, period, inverse=True):
 #     """

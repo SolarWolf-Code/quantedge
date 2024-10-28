@@ -1,4 +1,5 @@
 let currentAddButton = null;
+let resultsChart = null;
 
 function showBlockMenu(event, parentBlock) {
     const menu = document.getElementById('block-menu');
@@ -71,7 +72,6 @@ function addBlock(type) {
                 ` : ''}
             `;
             assetsContainer.appendChild(newAsset);
-            generateStrategyJSON(); // Add this line to update JSON when asset is added
         };
         
         newBlock.appendChild(blockContent);
@@ -127,7 +127,6 @@ function addBlock(type) {
     branch.insertBefore(newBlock, currentAddButton);
     currentAddButton.remove();
     hideBlockMenu();
-    generateStrategyJSON(); // Add this line
 }
 
 function hideBlockMenu() {
@@ -143,6 +142,53 @@ document.addEventListener('DOMContentLoaded', () => {
             hideBlockMenu();
         }
     });
+
+    const runButton = document.getElementById('run-backtest');
+    runButton.addEventListener('click', runBacktest);
+    
+    // Set default dates
+    const today = new Date();
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(today.getFullYear() - 1);
+    
+    document.getElementById('start-date').value = oneYearAgo.toISOString().split('T')[0];
+    document.getElementById('end-date').value = today.toISOString().split('T')[0];
+
+    // Add event listener for delete buttons
+    document.addEventListener('click', (event) => {
+        if (event.target.classList.contains('delete-button')) {
+            const asset = event.target.closest('.weight-asset');
+            if (asset) {
+                asset.remove();
+            } else {
+                deleteBlock(event);
+            }
+        }
+    });
+
+    // Add event listener for weight type changes
+    document.addEventListener('change', (event) => {
+        const target = event.target;
+        if (target.matches('select.weight-type')) {
+            const weightBlock = target.closest('.weight-block');
+            const assetsContainer = weightBlock.parentElement.parentElement.querySelector('.weight-assets');
+            const weightType = target.value;
+            
+            // Update all assets to show/hide weight inputs
+            assetsContainer.querySelectorAll('.weight-asset').forEach(asset => {
+                const symbol = asset.querySelector('input[type="text"]').value;
+                asset.innerHTML = `
+                    <button class="delete-button">×</button>
+                    <input type="text" value="${symbol}" style="width: 60px">
+                    ${weightType === 'weighted' ? `
+                        <span>:</span>
+                        <input type="number" value="50" style="width: 50px">
+                        <span>%</span>
+                    ` : ''}
+                `;
+            });
+        }
+    });
 });
 
 // Delete block function
@@ -156,7 +202,6 @@ function deleteBlock(event) {
         addButton.onclick = (e) => showBlockMenu(e, parentBranch);
         parentBranch.appendChild(addButton);
         block.remove();
-        generateStrategyJSON(); // Add this line
     }
 }
 
@@ -166,7 +211,6 @@ document.addEventListener('click', (event) => {
         const asset = event.target.closest('.weight-asset');
         if (asset) {
             asset.remove(); // Remove only the asset
-            generateStrategyJSON(); // Add this line to update JSON when asset is removed
         } else {
             deleteBlock(event); // Remove the block
         }
@@ -339,5 +383,236 @@ function updateIndicatorParams(select) {
             <span>d of</span>
         `;
     }
-    generateStrategyJSON();
 }
+
+// Remove the JSON-related functions and event listeners
+// Add this new function for running the backtest
+
+async function runBacktest() {
+    const resultsContainer = document.getElementById('backtest-results');
+    const loadingIndicator = document.getElementById('chart-loading');
+    
+    // Show loading indicator
+    loadingIndicator.classList.add('visible');
+    resultsContainer.classList.add('visible');
+    
+    const strategyName = document.querySelector('.strategy-name input').value;
+    const rootBlock = document.querySelector('.root-block');
+    
+    const payload = {
+        name: strategyName,
+        start_date: document.getElementById('start-date').value,
+        end_date: document.getElementById('end-date').value,
+        starting_capital: Number(document.getElementById('starting-capital').value),
+        monthly_investment: Number(document.getElementById('monthly-investment').value),
+        rules: {
+            name: strategyName,
+            rules: parseBlock(rootBlock)
+        }
+    };
+
+    try {
+        const response = await fetch('http://localhost:8000/backtest', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const results = await response.json();
+        displayResults(results);
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error running backtest: ' + error.message);
+    } finally {
+        // Hide loading indicator
+        loadingIndicator.classList.remove('visible');
+    }
+}
+
+function displayResults(data) {
+    const ctx = document.getElementById('results-chart').getContext('2d');
+    const resultsContainer = document.getElementById('backtest-results');
+    
+    // Clear previous results
+    const existingStats = resultsContainer.querySelector('.stats-container');
+    if (existingStats) {
+        existingStats.remove();
+    }
+    
+    // Destroy existing chart if it exists
+    if (resultsChart) {
+        resultsChart.destroy();
+    }
+
+    // Create stats display
+    const statsDiv = document.createElement('div');
+    statsDiv.className = 'stats-container';
+    
+    // Helper function to determine if a value should be shown as a percentage
+    const isPercentage = (key) => ["Total Return", "Annualized Return", "Max Drawdown", "Volatility"].includes(key);
+    
+    // Create stats HTML
+    statsDiv.innerHTML = Object.entries(data.stats).map(([key, value]) => `
+        <div class="stat-item">
+            <div class="stat-label">${key}</div>
+            <div class="stat-value ${value >= 0 ? 'positive' : 'negative'}">
+                ${isPercentage(key) ? (value).toFixed(2) + '%' : value.toFixed(2)}
+            </div>
+        </div>
+    `).join('');
+    
+    // Insert stats before the chart
+    const chartCanvas = document.getElementById('results-chart');
+    resultsContainer.insertBefore(statsDiv, chartCanvas);
+
+    // Prepare data for chart - using last available value for nulls
+    let lastPortfolioValue = null;
+    let lastSpyValue = null;
+
+    const chartData = data.daily_values.map((row, index) => {
+        // Use last known value if current value is null
+        if (row.portfolio_value !== null) {
+            lastPortfolioValue = row.portfolio_value;
+        }
+        
+        const spyValue = data.spy_values[index].SPY;
+        if (spyValue !== null) {
+            lastSpyValue = spyValue;
+        }
+
+        return {
+            date: row.date,
+            portfolio: lastPortfolioValue,
+            spy: lastSpyValue
+        };
+    }).filter(row => row.portfolio !== null && row.spy !== null);
+
+    // Create new chart
+    resultsChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: chartData.map(row => row.date),
+            datasets: [
+                {
+                    label: 'Portfolio',
+                    data: chartData.map(row => row.portfolio),
+                    borderColor: '#1976D2',
+                    backgroundColor: 'rgba(25, 118, 210, 0.1)',
+                    fill: true,
+                    tension: 0.1,
+                    borderWidth: 2,
+                    order: 1
+                },
+                {
+                    label: 'SPY',
+                    data: chartData.map(row => row.spy),
+                    borderColor: '#FFA726',
+                    backgroundColor: 'rgba(255, 167, 38, 0.1)',
+                    fill: true,
+                    tension: 0.1,
+                    borderWidth: 2,
+                    order: 2
+                }
+            ]
+        },
+        options: {
+            layout: {
+                padding: {
+                    top: 20,
+                    right: 20,
+                    bottom: 20,
+                    left: 20
+                }
+            },
+            responsive: true,
+            maintainAspectRatio: true,
+            aspectRatio: 2.5,
+            interaction: {
+                mode: 'nearest',
+                axis: 'x',
+                intersect: false
+            },
+            scales: {
+                x: {
+                    grid: {
+                        display: true,
+                        color: 'rgba(255, 255, 255, 0.1)'
+                    },
+                    ticks: {
+                        color: '#fff',
+                        maxRotation: 45,
+                        minRotation: 45,
+                        autoSkip: true,
+                        maxTicksLimit: 8,
+                        font: {
+                            size: 12
+                        }
+                    }
+                },
+                y: {
+                    grid: {
+                        display: true,
+                        color: 'rgba(255, 255, 255, 0.1)'
+                    },
+                    ticks: {
+                        color: '#fff',
+                        font: {
+                            size: 12
+                        },
+                        callback: (value) => '$' + value.toLocaleString()
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: {
+                        color: '#fff',
+                        font: {
+                            size: 12
+                        },
+                        usePointStyle: true,
+                        pointStyle: 'circle'
+                    }
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    titleFont: {
+                        size: 14
+                    },
+                    bodyFont: {
+                        size: 14
+                    },
+                    callbacks: {
+                        label: (context) => {
+                            return `${context.dataset.label}: $${context.parsed.y.toLocaleString()}`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Add event listener for the run backtest button
+document.addEventListener('DOMContentLoaded', () => {
+    const runButton = document.getElementById('run-backtest');
+    runButton.addEventListener('click', runBacktest);
+    
+    // Set default dates
+    const today = new Date();
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(today.getFullYear() - 1);
+    
+    document.getElementById('start-date').value = oneYearAgo.toISOString().split('T')[0];
+    document.getElementById('end-date').value = today.toISOString().split('T')[0];
+});
