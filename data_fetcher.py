@@ -4,33 +4,33 @@ import pandas as pd
 from database import get_db_connection, save_price_data
 
 
+def check_symbol_exists(symbol):
+    try:
+        yf.Ticker(symbol).info
+        return True
+    except Exception as e:
+        return False
+
 @lru_cache(maxsize=128)
 def get_earliest_date(symbol):
     with get_db_connection() as conn:
-        with conn.cursor() as cur:
-            # First check if symbol exists in symbols table
-            cur.execute("""
-                SELECT EXISTS (
-                    SELECT 1 FROM symbols WHERE symbol = %s
-                ) as symbol_exists,
-                EXISTS (
-                    SELECT 1 FROM prices WHERE symbol = %s
-                ) as prices_exist
-            """, (symbol, symbol))
-            result = cur.fetchone()
-            symbol_exists, prices_exist = result
-            
-            if symbol_exists and not prices_exist:
-                # Symbol exists but no price data - fetch it
-                print(f"Symbol {symbol} exists but has no price data. Fetching...")
+        try:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT MIN(date) FROM prices WHERE symbol = %s
+                """, (symbol,))
+                earliest_date = cur.fetchone()[0]
+                if earliest_date is None:
+                    raise ValueError(f"No data found for symbol: {symbol}")
+        except Exception as e:
+            # check if symbol exists
+            if not check_symbol_exists(symbol):
+                raise ValueError(f"Symbol {symbol} does not exist")
+            else:
+                # fetch data from yahoo finance
                 get_price_data_as_dataframe(symbol)
-            
-            # Now get the earliest date
-            cur.execute("""
-                SELECT MIN(date) FROM prices WHERE symbol = %s
-            """, (symbol,))
-            earliest_date = cur.fetchone()[0]
-            
+                earliest_date = get_earliest_date(symbol)
+
     return earliest_date
 
 def get_price_data_as_dataframe(symbol):
@@ -94,16 +94,31 @@ def load_daily_values(symbols, start_date, end_date):
 
 def _load_daily_values(symbols, start_date, end_date):
     with get_db_connection() as conn:
-        with conn.cursor() as cur:
-            # Now get all the price data
-            cur.execute("""
-                SELECT date, symbol, adj_close
-                FROM prices
-                WHERE symbol IN %s AND date >= %s AND date <= %s
-            """, (tuple(symbols), start_date, end_date))
-            data = cur.fetchall()
+        try:
+            with conn.cursor() as cur:
+                # Now get all the price data
+                cur.execute("""
+                    SELECT date, symbol, adj_close
+                    FROM prices
+                    WHERE symbol IN %s AND date >= %s AND date <= %s
+                """, (tuple(symbols), start_date, end_date))
+                data = cur.fetchall()
+        except Exception as e:
+            # check if symbols exist
+            for symbol in symbols:
+                if not check_symbol_exists(symbol):
+                    raise ValueError(f"Symbol {symbol} does not exist")
+            else:
+                # fetch data from yahoo finance
+                for symbol in symbols:
+                    get_price_data_as_dataframe(symbol)
+                data = _load_daily_values(symbols, start_date, end_date)
 
     df = pd.DataFrame(data, columns=['date', 'symbol', 'adj_close'])
     # Pivot the DataFrame to have symbols as columns
     df_pivoted = df.pivot(index='date', columns='symbol', values='adj_close')
     return df_pivoted
+
+
+if __name__ == "__main__":
+    print(check_symbol_exists("asdasd"))
