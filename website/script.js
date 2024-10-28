@@ -64,7 +64,7 @@ function addBlock(type) {
             newAsset.className = 'weight-asset';
             newAsset.innerHTML = `
                 <button class="delete-button">×</button>
-                <input type="text" value="AAPL" style="width: 60px">
+                <input type="text" value="AAPL" style="width: 60px" oninput="capitalizeAssetInput(this)">
                 ${weightType === 'weighted' ? `
                     <span>:</span>
                     <input type="number" value="50" style="width: 50px">
@@ -94,7 +94,7 @@ function addBlock(type) {
                 <input type="number" value="5" style="width: 40px">
                 <span>d of</span>
             </div>
-            <input type="text" value="QQQ" style="width: 60px">
+            <input type="text" value="QQQ" style="width: 60px" oninput="capitalizeAssetInput(this)">
             <span>is</span>
             <select class="comparator">
                 <option value="<">less than</option>
@@ -189,6 +189,14 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     });
+
+    // Add capitalization to the root block's asset input
+    const rootAssetInput = document.querySelector('.root-block input[type="text"]');
+    if (rootAssetInput) {
+        rootAssetInput.addEventListener('input', function() {
+            capitalizeAssetInput(this);
+        });
+    }
 });
 
 // Delete block function
@@ -457,8 +465,8 @@ function displayResults(data) {
     // Helper function to determine if a value should be shown as a percentage
     const isPercentage = (key) => ["Total Return", "Annualized Return", "Max Drawdown", "Volatility"].includes(key);
     
-    // Create stats HTML
-    statsDiv.innerHTML = Object.entries(data.stats).map(([key, value]) => `
+    // Create stats HTML for metrics
+    const metricsHtml = Object.entries(data.stats).map(([key, value]) => `
         <div class="stat-item">
             <div class="stat-label">${key}</div>
             <div class="stat-value ${value >= 0 ? 'positive' : 'negative'}">
@@ -466,6 +474,42 @@ function displayResults(data) {
             </div>
         </div>
     `).join('');
+
+    // Get the final values
+    const lastDataPoint = data.daily_values[data.daily_values.length - 1];
+    const lastSpyPoint = data.spy_values[data.spy_values.length - 1];
+    
+    // Calculate if the values are positive (compared to starting capital)
+    const startingCapital = Number(document.getElementById('starting-capital').value);
+    const portfolioReturn = ((lastDataPoint.portfolio_value - startingCapital) / startingCapital) * 100;
+    const spyReturn = ((lastSpyPoint.SPY - startingCapital) / startingCapital) * 100;
+
+    // Add final values HTML with color classes
+    const finalValuesHtml = `
+        <div class="stat-item final-value">
+            <div class="stat-label">Final Portfolio Value</div>
+            <div class="stat-value ${portfolioReturn >= 0 ? 'positive' : 'negative'}">
+                $${lastDataPoint.portfolio_value.toLocaleString(undefined, {maximumFractionDigits: 2})}
+            </div>
+        </div>
+        <div class="stat-item final-value">
+            <div class="stat-label">SPY Value</div>
+            <div class="stat-value ${spyReturn >= 0 ? 'positive' : 'negative'}">
+                $${lastSpyPoint.SPY.toLocaleString(undefined, {maximumFractionDigits: 2})}
+            </div>
+        </div>
+    `;
+
+    // Combine metrics and final values with a separator
+    statsDiv.innerHTML = `
+        <div class="metrics-row">
+            ${metricsHtml}
+        </div>
+        <div class="separator"></div>
+        <div class="final-values-row">
+            ${finalValuesHtml}
+        </div>
+    `;
     
     // Insert stats before the chart
     const chartCanvas = document.getElementById('results-chart');
@@ -616,3 +660,11 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('start-date').value = oneYearAgo.toISOString().split('T')[0];
     document.getElementById('end-date').value = today.toISOString().split('T')[0];
 });
+
+// Update the capitalization function to maintain cursor position
+function capitalizeAssetInput(input) {
+    const start = input.selectionStart;
+    const end = input.selectionEnd;
+    input.value = input.value.toUpperCase();
+    input.setSelectionRange(start, end);
+}

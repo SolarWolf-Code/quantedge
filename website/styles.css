@@ -327,6 +327,14 @@ input[type="number"] {
     border: 1px solid #444;
     border-radius: 4px;
     padding: 4px 8px;
+    text-transform: uppercase; /* This will display all text as uppercase */
+}
+
+/* Add a style for when the input is focused */
+input[type="text"]:focus {
+    border-color: #1976D2;
+    outline: none;
+    box-shadow: 0 0 0 1px rgba(25, 118, 210, 0.5);
 }
 
 /* Add these styles for the delete button */
@@ -536,17 +544,39 @@ input[type="number"] {
 
 .stats-container {
     display: flex;
-    gap: 20px;
-    flex-wrap: wrap;
+    flex-direction: column;
+    gap: 15px;
     margin-bottom: 20px;
     padding: 15px;
     background: #1a1a1a;
     border-radius: 8px;
 }
 
+.metrics-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    justify-content: center;
+}
+
+.separator {
+    width: 100%;
+    height: 1px;
+    background: #333;
+    margin: 15px 0; /* Increase margin for better spacing */
+}
+
+.final-values-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    justify-content: center;
+}
+
 .stat-item {
     flex: 1;
     min-width: 150px;
+    max-width: 250px;
     padding: 10px;
     background: #2d2d2d;
     border-radius: 6px;
@@ -554,22 +584,126 @@ input[type="number"] {
 }
 
 .stat-label {
-    font-size: 14px;
+    font-size: 13px;
     color: #999;
-    margin-bottom: 5px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+    font-weight: 500;
 }
 
 .stat-value {
     font-size: 20px;
-    font-weight: bold;
-    color: #fff;
+    font-weight: 600;
+    letter-spacing: 0.5px;
 }
 
-/* Add color coding for positive/negative values */
+.stat-item.final-value .stat-label {
+    font-size: 14px;
+    margin-bottom: 10px;
+}
+
+.stat-item.final-value .stat-value {
+    font-size: 28px;
+    font-weight: 700;
+}
+
+.stat-item.final-value {
+    flex: 1;
+    min-width: 150px;
+    max-width: 250px;
+    padding: 10px;
+    background: #2d2d2d;
+    border-radius: 6px;
+    text-align: center;
+}
+
+.stat-item.final-value .stat-value {
+    font-size: 24px;
+}
+
+/* Add or update these styles */
 .stat-value.positive {
     color: #4CAF50;
+    text-shadow: 0 0 10px rgba(76, 175, 80, 0.3);
 }
 
 .stat-value.negative {
     color: #f44336;
+    text-shadow: 0 0 10px rgba(244, 67, 54, 0.3);
+}
+
+/* Add these styles for consistent fonts and dark dropdowns */
+select {
+    background: #1a1a1a;
+    color: white;
+    border: 1px solid #444;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-family: inherit; /* Use the same font as the body */
+    font-size: 13px;
+    cursor: pointer;
+}
+
+select:focus {
+    border-color: #1976D2;
+    outline: none;
+    box-shadow: 0 0 0 1px rgba(25, 118, 210, 0.5);
+}
+
+/* Style the dropdown options */
+select option {
+    background: #1a1a1a;
+    color: white;
+    padding: 8px;
+}
+
+/* Update input styles for consistency */
+input[type="text"],
+input[type="number"],
+input[type="date"] {
+    background: #1a1a1a;
+    color: white;
+    border: 1px solid #444;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-family: inherit;
+    font-size: 13px;
+}
+
+/* Update font sizes for consistency */
+.stat-label {
+    font-size: 13px;
+    color: #999;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+.stat-value {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+/* Update backtest controls labels */
+.input-group label {
+    font-size: 13px;
+    color: #999;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 500;
+}
+
+/* Make sure all spans use the same font size */
+span {
+    font-size: 13px;
+}
+
+/* Update strategy name input */
+.strategy-name input {
+    font-family: inherit;
+    font-size: 24px;
+    font-weight: 600;
 }
