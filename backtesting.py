@@ -64,7 +64,7 @@ class Portfolio:
     def calculate_beta(self):
         """Calculate beta relative to SPY (market benchmark)"""
         # Get SPY data for the same period
-        spy_data = load_daily_values(['SPY'], self.inital_start_date, self.inital_end_date)
+        spy_data = load_daily_values(('SPY',), self.inital_start_date, self.inital_end_date)
         # Convert to float type before calculations
         spy_returns = spy_data['SPY'].astype(float).pct_change()
         
@@ -130,7 +130,7 @@ class Portfolio:
 
 
     def get_annualized_return(self):
-        years = max((self.end_date - self.start_date).days / 365, 1)  # Use minimum of 1 year
+        years = max((self.inital_end_date - self.inital_start_date).days / 365, 1)  # Use minimum of 1 year
         total_return = self.get_value() / self.starting_capital - 1
         return (1 + total_return) ** (1 / years) - 1
 
@@ -143,6 +143,9 @@ class Portfolio:
             # Monthly rebalancing
             if current_date.day == self.start_date.day:  # Only rebalance on same day of month
                 self.cash += self.monthly_investment
+                self.start_date = current_date
+                if current_date != self.inital_start_date:
+                    self.start_date += relativedelta(months=1)
                 self.next_month()
             
             current_date += relativedelta(days=1)
@@ -165,7 +168,7 @@ class Portfolio:
 
     def get_daily_values(self):
         symbols = list(self.shares.keys())
-        daily_values = load_daily_values(symbols, self.inital_start_date, self.inital_end_date)
+        daily_values = load_daily_values(tuple(sorted(symbols)), self.inital_start_date, self.inital_end_date)
 
         for index, row in daily_values.iterrows():
             total_value = self.cash  # Start with cash
@@ -176,7 +179,6 @@ class Portfolio:
                 'portfolio_value': total_value,
                 'cash': self.cash
             }
-
 
     def next_month(self):
         print(f"Date: {self.start_date}")
@@ -228,9 +230,3 @@ if __name__ == "__main__":
     
     end = time.time()
     print(f"Time taken: {end - start}")
-    
-    
-
-
-
-

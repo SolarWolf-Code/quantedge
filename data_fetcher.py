@@ -1,3 +1,4 @@
+from functools import lru_cache
 import yfinance as yf
 import pandas as pd
 from database import get_db_connection, save_price_data
@@ -12,7 +13,13 @@ def get_price_data_as_dataframe(symbol):
 
     save_price_data(symbol, df)
 
+@lru_cache(maxsize=128)
 def load_historical_data(symbol, end_date=None):
+    # Convert end_date to string if it exists, since datetime objects aren't hashable
+    cache_key_date = end_date.isoformat() if end_date else None
+    return _load_historical_data(symbol, end_date)
+
+def _load_historical_data(symbol, end_date=None):
     with get_db_connection() as conn:
         with conn.cursor() as cur:
             if end_date:
@@ -47,7 +54,15 @@ def load_historical_data(symbol, end_date=None):
     
     return df
 
+@lru_cache(maxsize=128)
 def load_daily_values(symbols, start_date, end_date):
+    # Convert dates to strings and symbols tuple to make it hashable
+    cache_key_symbols = tuple(sorted(symbols))  # Sort to ensure consistent caching
+    cache_key_start = start_date.isoformat()
+    cache_key_end = end_date.isoformat()
+    return _load_daily_values(cache_key_symbols, start_date, end_date)
+
+def _load_daily_values(symbols, start_date, end_date):
     with get_db_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("""

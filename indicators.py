@@ -23,6 +23,7 @@ def macd(symbol, end_date, fast_period, slow_period, signal_period):
     return result
 
 def sma_price(symbol, end_date, period):
+    print(f"Calculating SMA for {symbol} with period {period} and end date {end_date}")
     df = load_historical_data(symbol, end_date)
     result = df.ta.sma(length=period).iloc[-1]
     return result
