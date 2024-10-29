@@ -53,10 +53,14 @@ def clean_data_for_json(df):
 
 @app.post("/backtest")
 def backtest(payload: dict):
+    # start_date = payload["start_date"]
+    # end_date = payload["end_date"]
+    # starting_capital = payload["starting_capital"]
+    # monthly_investment = payload["monthly_investment"]
     start_date = payload["start_date"]
     end_date = payload["end_date"]
-    starting_capital = payload["starting_capital"]
-    monthly_investment = payload["monthly_investment"]
+    starting_capital = float(payload["starting_capital"])
+    monthly_investment = float(payload["monthly_investment"])
     rules = payload
     
     # convert start and end date to datetime
@@ -100,6 +104,9 @@ def backtest(payload: dict):
 
         # Test JSON serialization before sending
         test_json = json.dumps(response_data, cls=CustomJSONEncoder)
+        # print(test_json)
+        with open('response.json', 'w') as f:
+            json.dump(response_data, f, cls=CustomJSONEncoder)
         
         return fastapi.Response(
             content=test_json,
@@ -151,7 +158,7 @@ async def get_all_strategies():
         with get_db_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
-                    SELECT id, name, rules, created_at, updated_at
+                    SELECT id, name, rules, created_at, updated_at, user_id
                     FROM strategies
                     ORDER BY updated_at DESC
                 """)
@@ -164,7 +171,8 @@ async def get_all_strategies():
                         "name": strategy[1],
                         "rules": json.loads(strategy[2]) if isinstance(strategy[2], str) else strategy[2],
                         "created_at": strategy[3].isoformat() if strategy[3] else None,
-                        "updated_at": strategy[4].isoformat() if strategy[4] else None
+                        "updated_at": strategy[4].isoformat() if strategy[4] else None,
+                        "user_id": strategy[5]
                     }
                     for strategy in strategies
                 ]
@@ -196,5 +204,26 @@ async def get_strategy(strategy_id: int):
                 }
     except Exception as e:
         print(f"Error getting strategy: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/delete_strategy")
+async def delete_strategy(strategy_id: int):
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    DELETE FROM strategies
+                    WHERE id = %s
+                    RETURNING id
+                """, (strategy_id,))
+                
+                deleted = cur.fetchone()
+                if not deleted:
+                    raise HTTPException(status_code=404, detail="Strategy not found")
+                
+                conn.commit()
+                return {"success": True, "message": "Strategy deleted successfully"}
+    except Exception as e:
+        print(f"Error deleting strategy: {e}")
         raise HTTPException(status_code=500, detail=str(e))
         
