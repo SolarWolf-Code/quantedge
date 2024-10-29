@@ -6,6 +6,9 @@ import numpy as np
 import math
 import pandas as pd
 import json
+from database import get_db_connection
+from fastapi import FastAPI, HTTPException
+
 app = fastapi.FastAPI()
 
 # Add CORS middleware
@@ -54,7 +57,7 @@ def backtest(payload: dict):
     end_date = payload["end_date"]
     starting_capital = payload["starting_capital"]
     monthly_investment = payload["monthly_investment"]
-    rules = payload["rules"]
+    rules = payload
     
     # convert start and end date to datetime
     start_date = datetime.strptime(start_date, "%Y-%m-%d")
@@ -115,5 +118,83 @@ def backtest(payload: dict):
             status_code=500
         )
 
+@app.post("/save_strategy")
+async def save_strategy(strategy: dict):
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                # Convert rules to JSON string
+                rules_json = json.dumps(strategy['rules'])
+                
+                # Insert or update the strategy
+                cur.execute("""
+                    INSERT INTO strategies (name, rules, user_id, created_at, updated_at)
+                    VALUES (%s, %s, %s, NOW(), NOW())
+                    ON CONFLICT (name, user_id) 
+                    DO UPDATE SET 
+                        rules = EXCLUDED.rules,
+                        updated_at = NOW()
+                    RETURNING id
+                """, (strategy['name'], rules_json, strategy['user_id']))
+                
+                strategy_id = cur.fetchone()[0]
+                conn.commit()
+                
+                return {"success": True, "strategy_id": strategy_id}
+    except Exception as e:
+        print(f"Error saving strategy: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/get_all_strategies")
+async def get_all_strategies():
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT id, name, rules, created_at, updated_at
+                    FROM strategies
+                    ORDER BY updated_at DESC
+                """)
+                strategies = cur.fetchall()
+                
+                # Format each strategy as a dictionary
+                return [
+                    {
+                        "id": strategy[0],
+                        "name": strategy[1],
+                        "rules": json.loads(strategy[2]) if isinstance(strategy[2], str) else strategy[2],
+                        "created_at": strategy[3].isoformat() if strategy[3] else None,
+                        "updated_at": strategy[4].isoformat() if strategy[4] else None
+                    }
+                    for strategy in strategies
+                ]
+    except Exception as e:
+        print(f"Error getting strategies: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/get_strategy")
+async def get_strategy(strategy_id: int):
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT id, name, rules, created_at, updated_at
+                    FROM strategies
+                    WHERE id = %s
+                """, (strategy_id,))
+                strategy = cur.fetchone()
+                if not strategy:
+                    raise HTTPException(status_code=404, detail="Strategy not found")
+                
+                # Format the response as a dictionary
+                return {
+                    "id": strategy[0],
+                    "name": strategy[1],
+                    "rules": json.loads(strategy[2]) if isinstance(strategy[2], str) else strategy[2],
+                    "created_at": strategy[3].isoformat() if strategy[3] else None,
+                    "updated_at": strategy[4].isoformat() if strategy[4] else None
+                }
+    except Exception as e:
+        print(f"Error getting strategy: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+        

@@ -1,10 +1,25 @@
 let currentAddButton = null;
 let resultsChart = null;
+let isEditingCopy = true; // Start as true for new strategies
+let originalStrategyId = null;
 
 function showBlockMenu(event, parentBlock) {
+    if (!isEditingCopy) {
+        return;
+    }
+    
+    event.stopPropagation();
+    
     const menu = document.getElementById('block-menu');
+    
+    if (currentAddButton === event.target) {
+        hideBlockMenu();
+        return;
+    }
+    
     const rect = event.target.getBoundingClientRect();
     
+    menu.style.display = 'block';
     menu.style.left = `${rect.right + 10}px`;
     menu.style.top = `${rect.top}px`;
     
@@ -13,7 +28,6 @@ function showBlockMenu(event, parentBlock) {
         menu.style.left = `${rect.left - menuRect.width - 10}px`;
     }
     
-    menu.classList.add('visible');
     currentAddButton = event.target;
     
     const branch = event.target.closest('.left-branch, .right-branch');
@@ -24,12 +38,17 @@ function showBlockMenu(event, parentBlock) {
         button.style.display = existingBlocks.length > 0 ? 'none' : 'block';
     });
     
-    event.stopPropagation();
-    document.addEventListener('click', hideBlockMenu);
+    document.removeEventListener('click', hideBlockMenu);
+    
+    setTimeout(() => {
+        document.addEventListener('click', hideBlockMenu);
+    }, 0);
 }
 
 function addBlock(type) {
-    if (!currentAddButton) return;
+    if (!isEditingCopy || !currentAddButton) {
+        return;
+    }
     
     const branch = currentAddButton.closest('.left-branch, .right-branch');
     if (!branch) return;
@@ -127,19 +146,64 @@ function addBlock(type) {
     branch.insertBefore(newBlock, currentAddButton);
     currentAddButton.remove();
     hideBlockMenu();
-}
 
-function hideBlockMenu() {
     const menu = document.getElementById('block-menu');
     menu.classList.remove('visible');
+    menu.style.left = '-9999px';
+    currentAddButton = null;
+    document.removeEventListener('click', hideBlockMenu);
+}
+
+function hideBlockMenu(event) {
+    const menu = document.getElementById('block-menu');
+    if (!menu) return;
+    
+    if (event && (
+        event.target.closest('#block-menu') || 
+        event.target === currentAddButton
+    )) {
+        return;
+    }
+    
+    menu.style.display = 'none';
     currentAddButton = null;
     document.removeEventListener('click', hideBlockMenu);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    document.addEventListener('click', (event) => {
-        if (!event.target.closest('.block-menu') && !event.target.closest('.add-block')) {
-            hideBlockMenu();
+    console.log('DOM Content Loaded');
+    
+    const saveButton = document.getElementById('save-strategy');
+    const loadButton = document.getElementById('load-strategy');
+    
+    if (!saveButton || !loadButton) {
+        console.error('Could not find save or load buttons');
+        return;
+    }
+    
+    console.log('Found buttons:', { saveButton, loadButton });
+    
+    saveButton.addEventListener('click', (e) => {
+        console.log('Save button clicked');
+        saveStrategy();
+    });
+    
+    loadButton.addEventListener('click', (e) => {
+        console.log('Load button clicked');
+        showLoadStrategyModal();
+    });
+    
+    // Add event listener for modal close button
+    const closeButton = document.querySelector('.modal .close');
+    if (closeButton) {
+        closeButton.addEventListener('click', hideLoadStrategyModal);
+    }
+    
+    // Close modal when clicking outside
+    window.addEventListener('click', (event) => {
+        const modal = document.getElementById('load-strategy-modal');
+        if (event.target === modal) {
+            hideLoadStrategyModal();
         }
     });
 
@@ -197,10 +261,28 @@ document.addEventListener('DOMContentLoaded', () => {
             capitalizeAssetInput(this);
         });
     }
+
+    // Add event listener for make copy button
+    const makeCopyBtn = document.getElementById('make-copy');
+    if (makeCopyBtn) {
+        makeCopyBtn.addEventListener('click', makeStrategyCopy);
+    }
+
+    // Start in editing mode for new strategies
+    setReadOnlyMode(false);
+
+    // Ensure menu is hidden initially
+    const menu = document.getElementById('block-menu');
+    if (menu) {
+        menu.style.display = 'none';
+    }
 });
 
 // Delete block function
 function deleteBlock(event) {
+    if (!isEditingCopy) {
+        return;
+    }
     const block = event.target.closest('.block');
     if (block) {
         const parentBranch = block.closest('.left-branch, .right-branch');
@@ -243,11 +325,11 @@ function generateStrategyJSON() {
     autoResizeTextarea();
 }
 
-// Helper function to parse a block and its children
+// Add this function to handle the rules parsing
 function parseBlock(block) {
     if (!block) return null;
 
-    // Handle IF blocks
+    // Handle IF block
     if (block.querySelector('.if-block')) {
         const ifBlock = block.querySelector('.if-block');
         const indicator = ifBlock.querySelector('.indicator-type').value;
@@ -255,12 +337,14 @@ function parseBlock(block) {
         const params = paramInputs.map(input => Number(input.value));
         const symbol = ifBlock.querySelector('input[type="text"]').value;
         const comparator = ifBlock.querySelector('.comparator').value;
-        // Divide the value by 100 since it's a percentage
         const value = Number(ifBlock.querySelector('input[type="number"]:not(.indicator-params input)').value) / 100;
 
         const branches = block.querySelector('.branches');
         const leftBranch = branches.querySelector('.left-branch');
         const rightBranch = branches.querySelector('.right-branch');
+
+        const ifTrueBlocks = Array.from(leftBranch.querySelectorAll(':scope > .block')).map(parseBlock).filter(Boolean);
+        const ifFalseBlocks = Array.from(rightBranch.querySelectorAll(':scope > .block')).map(parseBlock).filter(Boolean);
 
         return {
             type: 'condition',
@@ -271,19 +355,18 @@ function parseBlock(block) {
             },
             comparator: comparator,
             value: value,
-            if_true: parseBlocks(leftBranch.querySelectorAll(':scope > .block')),
-            if_false: parseBlocks(rightBranch.querySelectorAll(':scope > .block'))
+            if_true: ifTrueBlocks,
+            if_false: ifFalseBlocks
         };
     }
-    
-    // Handle WEIGHT blocks
+
+    // Handle WEIGHT block
     if (block.querySelector('.weight-block')) {
         const weightBlock = block.querySelector('.weight-block');
         const weightType = weightBlock.querySelector('.weight-type').value;
         const assets = Array.from(block.querySelectorAll('.weight-asset')).map(asset => {
             const symbol = asset.querySelector('input[type="text"]').value;
             if (weightType === 'weighted') {
-                // Divide the weight by 100 since it's a percentage
                 const weight = Number(asset.querySelector('input[type="number"]').value) / 100;
                 return { symbol, weight };
             }
@@ -298,11 +381,6 @@ function parseBlock(block) {
     }
 
     return null;
-}
-
-// Helper function to parse multiple blocks
-function parseBlocks(blocks) {
-    return Array.from(blocks).map(block => parseBlock(block)).filter(Boolean);
 }
 
 // Add event listeners for input changes
@@ -400,23 +478,32 @@ async function runBacktest() {
     const resultsContainer = document.getElementById('backtest-results');
     const loadingIndicator = document.getElementById('chart-loading');
     
-    // Show loading indicator
     loadingIndicator.classList.add('visible');
     resultsContainer.classList.add('visible');
     
+    const chartCanvas = document.getElementById('results-chart');
+    chartCanvas.style.filter = 'blur(3px)';
+    chartCanvas.style.opacity = '0.3';
+
     const strategyName = document.querySelector('.strategy-name input').value;
     const rootBlock = document.querySelector('.root-block');
+    const rules = parseBlock(rootBlock);
     
+    if (!rules) {
+        alert('Invalid strategy configuration');
+        loadingIndicator.classList.remove('visible');
+        chartCanvas.style.filter = 'none';
+        chartCanvas.style.opacity = '1';
+        return;
+    }
+
     const payload = {
         name: strategyName,
         start_date: document.getElementById('start-date').value,
         end_date: document.getElementById('end-date').value,
         starting_capital: Number(document.getElementById('starting-capital').value),
         monthly_investment: Number(document.getElementById('monthly-investment').value),
-        rules: {
-            name: strategyName,
-            rules: parseBlock(rootBlock)
-        }
+        rules: rules
     };
 
     try {
@@ -438,8 +525,9 @@ async function runBacktest() {
         console.error('Error:', error);
         alert('Error running backtest: ' + error.message);
     } finally {
-        // Hide loading indicator
         loadingIndicator.classList.remove('visible');
+        chartCanvas.style.filter = 'none';
+        chartCanvas.style.opacity = '1';
     }
 }
 
@@ -447,15 +535,39 @@ function displayResults(data) {
     const ctx = document.getElementById('results-chart').getContext('2d');
     const resultsContainer = document.getElementById('backtest-results');
     
-    // Clear previous results
+    // Clear all previous content
     const existingStats = resultsContainer.querySelector('.stats-container');
+    const existingNoData = resultsContainer.querySelector('.no-data-message');
+    
     if (existingStats) {
         existingStats.remove();
+    }
+    if (existingNoData) {
+        existingNoData.remove();
     }
     
     // Destroy existing chart if it exists
     if (resultsChart) {
         resultsChart.destroy();
+    }
+
+    // Check if we have data to display
+    if (!data.daily_values?.length || !data.spy_values?.length) {
+        // Create a message container
+        const noDataMessage = document.createElement('div');
+        noDataMessage.className = 'no-data-message';
+        noDataMessage.innerHTML = `
+            <div class="message-content">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                <p>No data available for the selected period and assets.</p>
+            </div>
+        `;
+        resultsContainer.appendChild(noDataMessage);
+        return;
     }
 
     // Create stats display
@@ -667,4 +779,343 @@ function capitalizeAssetInput(input) {
     const end = input.selectionEnd;
     input.value = input.value.toUpperCase();
     input.setSelectionRange(start, end);
+}
+
+// Add these functions near the top of the file
+function showLoadStrategyModal() {
+    console.log('Showing modal');
+    const modal = document.getElementById('load-strategy-modal');
+    if (!modal) {
+        console.error('Could not find modal element');
+        return;
+    }
+    modal.style.display = 'block';
+    loadStrategiesList();
+}
+
+function hideLoadStrategyModal() {
+    const modal = document.getElementById('load-strategy-modal');
+    modal.style.display = 'none';
+}
+
+async function loadStrategiesList() {
+    const strategiesList = document.querySelector('.strategies-list');
+    strategiesList.innerHTML = '<div class="loading">Loading strategies...</div>';
+    
+    try {
+        console.log('Fetching strategies...');
+        const response = await fetch('http://localhost:8000/get_all_strategies');
+        console.log('Load response:', response);
+        
+        const strategies = await response.json();
+        console.log('Loaded strategies:', strategies);
+        
+        if (strategies && strategies.length > 0) {
+            strategiesList.innerHTML = strategies.map(strategy => `
+                <div class="strategy-item" data-id="${strategy.id}" onclick="loadStrategy(${strategy.id})">
+                    <div class="strategy-item-name">${strategy.name}</div>
+                    <div class="strategy-item-date">Created: ${new Date(strategy.created_at).toLocaleDateString()}</div>
+                </div>
+            `).join('');
+        } else {
+            strategiesList.innerHTML = '<div class="no-strategies">No saved strategies found</div>';
+        }
+    } catch (error) {
+        console.error('Error loading strategies:', error);
+        strategiesList.innerHTML = '<div class="error">Error loading strategies: ' + error.message + '</div>';
+    }
+}
+
+async function loadStrategy(strategyId) {
+    try {
+        const response = await fetch(`http://localhost:8000/get_strategy?strategy_id=${strategyId}`);
+        const strategy = await response.json();
+        
+        if (strategy) {
+            // Store the original strategy ID
+            originalStrategyId = strategy.id;
+            
+            // Update strategy name
+            const nameInput = document.querySelector('.strategy-name input');
+            nameInput.value = strategy.name;
+            
+            // Set to read-only mode
+            setReadOnlyMode(true);
+            
+            // Parse the rules if they're a string
+            const rules = typeof strategy.rules === 'string' 
+                ? JSON.parse(strategy.rules) 
+                : strategy.rules;
+            
+            // Rebuild the UI with the rules
+            rebuildStrategyUI(rules);
+            
+            hideLoadStrategyModal();
+        }
+    } catch (error) {
+        console.error('Error loading strategy:', error);
+        alert('Error loading strategy');
+    }
+}
+
+async function saveStrategy() {
+    if (!isEditingCopy) {
+        alert('Please make a copy before editing this strategy');
+        return;
+    }
+
+    const strategyNameInput = document.querySelector('.strategy-name input');
+    const rootBlock = document.querySelector('.root-block');
+    
+    if (!strategyNameInput || !rootBlock) {
+        alert('Missing required elements');
+        return;
+    }
+
+    const rules = parseBlock(rootBlock);
+    if (!rules) {
+        alert('Invalid strategy configuration');
+        return;
+    }
+
+    const strategy = {
+        name: strategyNameInput.value,
+        rules: rules,
+        user_id: 1
+    };
+
+    try {
+        const response = await fetch('http://localhost:8000/save_strategy', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(strategy)
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        if (result.success) {
+            alert('Strategy saved successfully!');
+            originalStrategyId = result.strategy_id;
+            setReadOnlyMode(true);
+        } else {
+            alert('Error saving strategy');
+        }
+    } catch (error) {
+        console.error('Error saving strategy:', error);
+        alert('Error saving strategy: ' + error.message);
+    }
+}
+
+// Add this to your DOMContentLoaded event listener
+document.addEventListener('DOMContentLoaded', () => {
+    // ... existing code ...
+    
+    // Add event listeners for save and load buttons
+    document.getElementById('save-strategy').addEventListener('click', saveStrategy);
+    document.getElementById('load-strategy').addEventListener('click', showLoadStrategyModal);
+    
+    // Add event listener for modal close button
+    document.querySelector('.modal .close').addEventListener('click', hideLoadStrategyModal);
+    
+    // Close modal when clicking outside
+    window.addEventListener('click', (event) => {
+        const modal = document.getElementById('load-strategy-modal');
+        if (event.target === modal) {
+            hideLoadStrategyModal();
+        }
+    });
+});
+
+// Add this function to rebuild the strategy UI
+function rebuildStrategyUI(rules) {
+    // Clear existing strategy
+    const strategyRoot = document.getElementById('strategy-root');
+    strategyRoot.innerHTML = '';
+    
+    // If rules has a nested rules property, use that
+    const actualRules = rules.rules || rules;
+    
+    // Rebuild the UI based on the rules
+    const rootBlock = buildBlockFromRules(actualRules);
+    if (rootBlock) {
+        rootBlock.className = 'block root-block';
+        strategyRoot.appendChild(rootBlock);
+    }
+}
+
+function buildBlockFromRules(rules) {
+    if (!rules) return null;
+
+    const block = document.createElement('div');
+    block.className = 'block';
+    
+    if (rules.type === 'condition') {
+        // Build IF block
+        const blockContent = document.createElement('div');
+        blockContent.className = 'block-content if-block';
+        blockContent.innerHTML = `
+            <span>IF</span>
+            <select class="indicator-type" onchange="updateIndicatorParams(this)">
+                <option value="${rules.indicator.name}">${rules.indicator.name}</option>
+            </select>
+            <div class="indicator-params">
+                ${rules.indicator.params.map(param => `
+                    <input type="number" value="${param}" style="width: 40px">
+                `).join('')}
+                <span>d of</span>
+            </div>
+            <input type="text" value="${rules.indicator.symbol}" style="width: 60px">
+            <span>is</span>
+            <select class="comparator">
+                <option value="${rules.comparator}">${rules.comparator}</option>
+            </select>
+            <input type="number" value="${rules.value * 100}" style="width: 50px">
+            <span>%</span>
+        `;
+        
+        const branches = document.createElement('div');
+        branches.className = 'branches';
+        branches.innerHTML = `
+            <div class="left-branch">
+                ${rules.if_true ? '' : '<button class="add-block" onclick="showBlockMenu(event, \'left\')">+</button>'}
+            </div>
+            <div class="right-branch">
+                <div class="block-content else-block">
+                    <span>ELSE</span>
+                </div>
+                ${rules.if_false ? '' : '<button class="add-block" onclick="showBlockMenu(event, \'right\')">+</button>'}
+            </div>
+        `;
+        
+        block.appendChild(blockContent);
+        block.appendChild(branches);
+        
+        // Recursively build true/false branches
+        if (rules.if_true && rules.if_true.length > 0) {
+            const trueBlock = buildBlockFromRules(rules.if_true[0]);
+            if (trueBlock) {
+                branches.querySelector('.left-branch').appendChild(trueBlock);
+            }
+        }
+        
+        if (rules.if_false && rules.if_false.length > 0) {
+            const falseBlock = buildBlockFromRules(rules.if_false[0]);
+            if (falseBlock) {
+                branches.querySelector('.right-branch').appendChild(falseBlock);
+            }
+        }
+    } else if (rules.type === 'weight') {
+        // Build WEIGHT block
+        const blockContent = document.createElement('div');
+        blockContent.className = 'block-content weight-block';
+        blockContent.innerHTML = `
+            <button class="delete-button">×</button>
+            <span>WEIGHT</span>
+            <select class="weight-type">
+                <option value="${rules.weight_type}">${rules.weight_type}</option>
+            </select>
+        `;
+        
+        const assetsContainer = document.createElement('div');
+        assetsContainer.className = 'weight-assets';
+        
+        rules.assets.forEach(asset => {
+            const assetDiv = document.createElement('div');
+            assetDiv.className = 'weight-asset';
+            assetDiv.innerHTML = `
+                <button class="delete-button">×</button>
+                <input type="text" value="${asset.symbol}" style="width: 60px">
+                ${rules.weight_type === 'weighted' ? `
+                    <span>:</span>
+                    <input type="number" value="${asset.weight * 100}" style="width: 50px">
+                    <span>%</span>
+                ` : ''}
+            `;
+            assetsContainer.appendChild(assetDiv);
+        });
+        
+        const addAssetButton = document.createElement('button');
+        addAssetButton.className = 'add-block';
+        addAssetButton.innerHTML = '+';
+        addAssetButton.onclick = (e) => {
+            e.stopPropagation();
+            const weightType = blockContent.querySelector('.weight-type').value;
+            const newAsset = document.createElement('div');
+            newAsset.className = 'weight-asset';
+            newAsset.innerHTML = `
+                <button class="delete-button">×</button>
+                <input type="text" value="AAPL" style="width: 60px">
+                ${weightType === 'weighted' ? `
+                    <span>:</span>
+                    <input type="number" value="50" style="width: 50px">
+                    <span>%</span>
+                ` : ''}
+            `;
+            assetsContainer.appendChild(newAsset);
+        };
+        
+        block.appendChild(blockContent);
+        block.appendChild(assetsContainer);
+        block.appendChild(addAssetButton);
+    }
+    
+    return block;
+}
+
+// Add function to handle read-only mode
+function setReadOnlyMode(readonly) {
+    isEditingCopy = !readonly;
+    
+    // Update name input
+    const nameInput = document.querySelector('.strategy-name input');
+    nameInput.readOnly = readonly;
+    
+    // Show/hide make copy button
+    const makeCopyBtn = document.getElementById('make-copy');
+    makeCopyBtn.style.display = readonly ? 'block' : 'none';
+    
+    // Show/hide save button
+    const saveBtn = document.getElementById('save-strategy');
+    saveBtn.style.display = readonly ? 'none' : 'block';
+    
+    // Disable/enable all inputs and selects in the strategy builder
+    const inputs = document.querySelectorAll('#strategy-root input, #strategy-root select');
+    inputs.forEach(input => {
+        input.disabled = readonly;
+    });
+    
+    // Disable/enable add and delete buttons
+    const actionButtons = document.querySelectorAll('#strategy-root .add-block, #strategy-root .delete-button');
+    actionButtons.forEach(button => {
+        if (readonly) {
+            button.style.display = 'none';
+            // Remove click handlers
+            button.onclick = null;
+        } else {
+            button.style.display = 'block';
+            // Restore click handlers for add buttons
+            if (button.classList.contains('add-block')) {
+                button.onclick = (e) => showBlockMenu(e, button.closest('.left-branch, .right-branch'));
+            }
+        }
+    });
+    
+    // Disable/enable block menu
+    const blockMenu = document.getElementById('block-menu');
+    if (blockMenu) {
+        blockMenu.style.display = readonly ? 'none' : 'block';
+    }
+}
+
+// Add function to make a copy
+function makeStrategyCopy() {
+    const nameInput = document.querySelector('.strategy-name input');
+    nameInput.value = `Copy of ${nameInput.value}`;
+    originalStrategyId = null;
+    setReadOnlyMode(false);
 }

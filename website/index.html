@@ -11,8 +11,15 @@
 </head>
 <body>
     <div class="container">
-        <div class="strategy-name">
-            <input type="text" placeholder="Strategy Name" value="NASDAQ Mean Reversion">
+        <div class="strategy-header">
+            <div class="strategy-name">
+                <input type="text" placeholder="Strategy Name" value="NASDAQ Mean Reversion" readonly>
+            </div>
+            <div class="strategy-actions">
+                <button id="make-copy" class="action-button" style="display: none;">Make Copy</button>
+                <button id="save-strategy" class="action-button">Save Strategy</button>
+                <button id="load-strategy" class="action-button">Load Strategy</button>
+            </div>
         </div>
 
         <div id="strategy-root">
@@ -89,6 +96,18 @@
     <div class="block-menu" id="block-menu">
         <button class="weight" onclick="addBlock('weight')">WEIGHT</button>
         <button class="if" onclick="addBlock('if')">IF</button>
+    </div>
+
+    <div id="load-strategy-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Load Strategy</h2>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="strategies-list"></div>
+            </div>
+        </div>
     </div>
 
     <script src="script.js"></script>

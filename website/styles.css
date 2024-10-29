@@ -272,7 +272,7 @@ body {
     box-shadow: 0 2px 8px rgba(0,0,0,0.2);
     padding: 10px;
     z-index: 1000;
-    display: none;
+    display: none; /* Hide by default */
     min-width: 120px;
 }
 
@@ -327,7 +327,21 @@ input[type="number"] {
     border: 1px solid #444;
     border-radius: 4px;
     padding: 4px 8px;
-    text-transform: uppercase; /* This will display all text as uppercase */
+}
+
+/* Add uppercase transformation specifically for asset inputs */
+.weight-asset input[type="text"],
+.if-block input[type="text"],
+.root-block .block-content input[type="text"] {
+    text-transform: uppercase;
+}
+
+/* Keep strategy name input normal case */
+.strategy-name input {
+    font-family: inherit;
+    font-size: 24px;
+    font-weight: 600;
+    text-transform: none; /* Explicitly prevent uppercase transformation */
 }
 
 /* Add a style for when the input is focused */
@@ -706,4 +720,157 @@ span {
     font-family: inherit;
     font-size: 24px;
     font-weight: 600;
+}
+
+/* Add these styles for the no-data message */
+.no-data-message {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: #999;
+}
+
+.message-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+}
+
+.no-data-message svg {
+    width: 48px;
+    height: 48px;
+    stroke: #666;
+}
+
+.no-data-message p {
+    margin: 0;
+    font-size: 16px;
+}
+
+/* Strategy header layout */
+.strategy-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.strategy-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.action-button {
+    background: #1976D2;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.2s;
+}
+
+.action-button:hover {
+    background: #1565C0;
+}
+
+/* Modal styles */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+}
+
+.modal-content {
+    background: #2d2d2d;
+    margin: 15% auto;
+    padding: 20px;
+    border-radius: 8px;
+    width: 80%;
+    max-width: 500px;
+    position: relative;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.modal-header h2 {
+    margin: 0;
+    color: #fff;
+    font-size: 20px;
+}
+
+.close {
+    color: #aaa;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close:hover {
+    color: #fff;
+}
+
+.strategies-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.strategy-item {
+    background: #1a1a1a;
+    padding: 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.strategy-item:hover {
+    background: #333;
+}
+
+.strategy-item-name {
+    font-size: 16px;
+    font-weight: 500;
+    color: #fff;
+}
+
+.strategy-item-date {
+    font-size: 12px;
+    color: #999;
+    margin-top: 4px;
+}
+
+/* Add these styles */
+input:disabled,
+select:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.strategy-name input[readonly] {
+    opacity: 0.7;
+    cursor: not-allowed;
+    background: transparent;
+}
+
+#make-copy {
+    background: #4CAF50;
+}
+
+#make-copy:hover {
+    background: #388E3C;
 }

@@ -94,25 +94,25 @@ def load_daily_values(symbols, start_date, end_date):
 
 def _load_daily_values(symbols, start_date, end_date):
     with get_db_connection() as conn:
-        try:
-            with conn.cursor() as cur:
-                # Now get all the price data
-                cur.execute("""
-                    SELECT date, symbol, adj_close
-                    FROM prices
-                    WHERE symbol IN %s AND date >= %s AND date <= %s
-                """, (tuple(symbols), start_date, end_date))
-                data = cur.fetchall()
-        except Exception as e:
-            # check if symbols exist
-            for symbol in symbols:
-                if not check_symbol_exists(symbol):
-                    raise ValueError(f"Symbol {symbol} does not exist")
-            else:
-                # fetch data from yahoo finance
-                for symbol in symbols:
-                    get_price_data_as_dataframe(symbol)
-                data = _load_daily_values(symbols, start_date, end_date)
+        # try:
+        with conn.cursor() as cur:
+            # Now get all the price data
+            cur.execute("""
+                SELECT date, symbol, adj_close
+                FROM prices
+                WHERE symbol IN %s AND date >= %s AND date <= %s
+            """, (tuple(symbols), start_date, end_date))
+            data = cur.fetchall()
+        # except Exception as e:
+        #     # check if symbols exist
+        #     for symbol in symbols:
+        #         if not check_symbol_exists(symbol):
+        #             raise ValueError(f"Symbol {symbol} does not exist")
+        #     else:
+        #         # fetch data from yahoo finance
+        #         for symbol in symbols:
+        #             get_price_data_as_dataframe(symbol)
+        #         data = _load_daily_values(symbols, start_date, end_date)
 
     df = pd.DataFrame(data, columns=['date', 'symbol', 'adj_close'])
     # Pivot the DataFrame to have symbols as columns

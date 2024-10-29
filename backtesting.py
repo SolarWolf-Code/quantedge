@@ -167,6 +167,8 @@ class Portfolio:
 
     def get_daily_values(self):
         symbols = list(self.shares.keys())
+        if len(symbols) == 0:
+            return
         daily_values = load_daily_values(tuple(sorted(symbols)), self.inital_start_date, self.inital_end_date)
 
         for index, row in daily_values.iterrows():
@@ -215,9 +217,16 @@ class Portfolio:
     
     def spy_stats(self):
         """Calculate SPY comparison statistics"""
+        if len(self.shares) == 0:
+            return {
+                'spy_values': pd.DataFrame(),
+                'spy_final_value': 0,
+                'spy_initial_value': 0
+            }
+
         spy_data = load_daily_values(('SPY',), self.inital_start_date, self.inital_end_date)
         spy_data['SPY'] = spy_data['SPY'].astype(float)
-        
+            
         # Calculate SPY portfolio value (if we had invested everything in SPY)
         spy_shares = self.starting_capital / spy_data['SPY'].iloc[0]  # Initial shares bought
         spy_portfolio_value = spy_shares * spy_data['SPY']
