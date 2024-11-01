@@ -17,7 +17,7 @@
         "weight_type": "equal_buy",
         "assets": [
           {
-            "symbol": "SPY"
+            "symbol": "TQQQ"
           }
         ]
       }
@@ -28,7 +28,7 @@
         "weight_type": "equal_buy",
         "assets": [
           {
-            "symbol": "SPY"
+            "symbol": "TQQQ"
           }
         ]
       }

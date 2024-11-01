@@ -1,13 +1,11 @@
 import json
 from indicators import *
-from utils import compare
 from data_fetcher import get_earliest_date
-from buy_strategies import *
+from transaction_types import *
 from termcolor import colored
 
 indicator_map = {
     'cumulative_return': cumulative_return,
-    # 'rsi': rsi,
     'sma_price': sma_price,
     'macd': macd,
     'ema': ema,
@@ -61,7 +59,7 @@ def evaluate_condition(condition, end_date):
     else:
         raise ValueError(f"Unknown comparator: {comparator}")
 
-def execute_weight_action(node, end_date, purchases):
+def execute_weight_action(node, end_date, transactions):
     print(f"Executing weight action: {colored(node['weight_type'], 'green')}")
     assets = node['assets']
     
@@ -78,23 +76,37 @@ def execute_weight_action(node, end_date, purchases):
         print(colored("No valid assets found with available data - skipping weight action", 'red'))
         return
     
-    # Recalculate weights for valid assets only
-    if node['weight_type'] == 'weighted':
-        # Get total weight of valid assets
-        total_weight = sum(asset['weight'] for asset in valid_assets)
-        # Normalize weights
-        for asset in valid_assets:
-            asset['weight'] = asset['weight'] / total_weight
-        print(f"Assets: {colored({asset['symbol']: asset['weight'] for asset in valid_assets}, 'cyan')}")
+    # for buying
+    if node['weight_type'].endswith('buy'):
+        # Recalculate weights for valid assets only
+        if node['weight_type'] == 'weighted_buy':
+            # Get total weight of valid assets
+            total_weight = sum(asset['weight'] for asset in valid_assets)
+            # Normalize weights
+            for asset in valid_assets:
+                asset['weight'] = asset['weight'] / total_weight
+            print(f"Assets: {colored({asset['symbol']: asset['weight'] for asset in valid_assets}, 'cyan')}")
+        else:
+            print(f"Assets: {colored([asset['symbol'] for asset in valid_assets], 'cyan')}")
+        
+        if node['weight_type'] == 'equal_buy':
+            return buy_equal(valid_assets, transactions)
+        elif node['weight_type'] == 'weighted_buy':
+            return buy_weighted(valid_assets, transactions)
+        else:
+            raise ValueError(f"Unknown weight type: {node['weight_type']}")
+        
+    elif node['weight_type'].endswith('sell'):
+        if node['weight_type'] == 'all_sell':
+            return sell_all(valid_assets, transactions)
+        elif node['weight_type'] == 'partial_sell':
+            return sell_partial(valid_assets, transactions)
+        else:
+            raise ValueError(f"Unknown weight type: {node['weight_type']}")
     else:
-        print(f"Assets: {colored([asset['symbol'] for asset in valid_assets], 'cyan')}")
-    
-    if node['weight_type'] == 'equal':
-        return buy_equal(valid_assets, purchases)
-    else:  # specified
-        return buy_weighted(valid_assets, purchases)
+        raise ValueError(f"Unknown weight type: {node['weight_type']}")
 
-def process_node(node, end_date, purchases):
+def process_node(node, end_date, transactions):
     """Process a node in the decision tree"""
     if not isinstance(node, dict):
         return
@@ -107,14 +119,14 @@ def process_node(node, end_date, purchases):
         if condition_result:
             print(colored("Condition is True, taking true branch", 'green'))
             if node['if_true']:
-                process_node(node['if_true'][0], end_date, purchases)
+                process_node(node['if_true'][0], end_date, transactions)
         else:
             print(colored("Condition is False, taking false branch", 'red'))
             if node['if_false']:
-                process_node(node['if_false'][0], end_date, purchases)
+                process_node(node['if_false'][0], end_date, transactions)
                 
     elif node_type == 'weight':
-        execute_weight_action(node, end_date, purchases)  # Added end_date parameter
+        execute_weight_action(node, end_date, transactions)  # Added end_date parameter
     else:
         raise ValueError(f"Unknown node type: {node_type}")
 
@@ -123,16 +135,19 @@ def run_trading_system(rules, end_date):
     print(colored(f"\nExecuting strategy: {rules['name']}", 'blue', attrs=['bold']))
     print(colored("=" * 50, 'blue'))
     
-    purchases = {}
+    transactions = {
+        'buy': {},
+        'sell': {}
+    }
 
     try:
-        process_node(rules['rules'], end_date, purchases)
+        process_node(rules['rules'], end_date, transactions)
     except Exception as e:
         print(colored(f"Error executing strategy: {str(e)}", 'red'))
         raise
 
 
-    return purchases
+    return transactions
 
 def load_rules(file_path):
     """Load rules from a JSON file"""

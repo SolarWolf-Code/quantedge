@@ -23,6 +23,12 @@ class Portfolio:
         self.daily_values = pd.DataFrame(columns=['date', 'portfolio_value', 'cash'])
         self.daily_values.set_index('date', inplace=True)
         
+        # Add daily shares tracking
+        self.daily_shares = {}  # Format: {date: {symbol: shares}}
+        # Modify daily_values to include shares for each symbol
+        self.daily_values = pd.DataFrame(columns=['date', 'portfolio_value', 'cash'])
+        self.daily_values.set_index('date', inplace=True)
+
     def calculate_portfolio_stats(self):
         """Calculate various portfolio performance metrics"""
         # Calculate daily returns
@@ -126,6 +132,22 @@ class Portfolio:
         self.shares[symbol] = self.shares.get(symbol, 0) + quantity
         print(f"{termcolor.colored('Bought', 'green')} {termcolor.colored(symbol, 'magenta')} {quantity:.2f} shares @ ${price:.2f}")
 
+        # Update daily shares for the current date
+        current_date = self.start_date.strftime('%Y-%m-%d')
+        if current_date not in self.daily_shares:
+            self.daily_shares[current_date] = {}
+        self.daily_shares[current_date][symbol] = self.shares[symbol]
+
+    def sell(self, symbol, price, quantity):
+        self.cash += price * quantity
+        self.shares[symbol] = self.shares.get(symbol, 0) - quantity
+        print(f"{termcolor.colored('Sold', 'red')} {termcolor.colored(symbol, 'magenta')} {quantity:.2f} shares @ ${price:.2f}")
+
+        # Update daily shares for the current date
+        current_date = self.start_date.strftime('%Y-%m-%d')
+        if current_date not in self.daily_shares:
+            self.daily_shares[current_date] = {}
+        self.daily_shares[current_date][symbol] = self.shares[symbol]
 
     def get_annualized_return(self):
         years = max((self.inital_end_date - self.inital_start_date).days / 365, 1)  # Use minimum of 1 year
@@ -134,20 +156,25 @@ class Portfolio:
 
     def backtest(self):
         current_date = self.start_date
+        # Process initial investment immediately (using starting_capital only)
+        self.next_month()  # Process initial investment immediately
+        
         while current_date <= self.end_date:
             if current_date + relativedelta(months=1) > datetime.now():
                 break
                 
             # Monthly rebalancing
-            if current_date.day == self.start_date.day:  # Only rebalance on same day of month
+            if current_date.day == self.start_date.day and current_date > self.inital_start_date:  # Only add monthly investment after initial month
                 self.cash += self.monthly_investment
                 self.start_date = current_date
-                if current_date != self.inital_start_date:
-                    self.start_date += relativedelta(months=1)
                 self.next_month()
+                self.start_date += relativedelta(months=1)
+            else:
+                last_date = current_date - relativedelta(days=1)
+                if last_date.strftime('%Y-%m-%d') in self.daily_shares:
+                    self.daily_shares[current_date.strftime('%Y-%m-%d')] = self.daily_shares[last_date.strftime('%Y-%m-%d')].copy()
             
             current_date += relativedelta(days=1)
-
 
         # Display holdings
         df = pd.DataFrame(list(self.shares.items()), columns=['Symbol', 'Shares'])
@@ -161,6 +188,11 @@ class Portfolio:
         print("\nPortfolio Statistics:")
         print(stats.to_string())
 
+        # calculate the number of months between inital_start_date and end_date
+        months = (self.inital_end_date.year - self.inital_start_date.year) * 12 + (self.inital_end_date.month - self.inital_start_date.month)
+        total_contributions = (self.monthly_investment * months) + self.starting_capital
+        print(f"\nTotal Contributions: ${total_contributions:.2f}")
+
         print(f"\nEnding Portfolio Value: ${self.get_value():.2f}")
         
         return self.daily_values
@@ -169,39 +201,65 @@ class Portfolio:
         symbols = list(self.shares.keys())
         if len(symbols) == 0:
             return
-        daily_values = load_daily_values(tuple(sorted(symbols)), self.inital_start_date, self.inital_end_date)
-
-        for index, row in daily_values.iterrows():
-            total_value = self.cash  # Start with cash
-            for symbol in self.shares:
-                total_value += self.shares[symbol] * float(row[symbol])
             
-            self.daily_values.loc[index] = {
+        daily_values = load_daily_values(tuple(sorted(symbols)), self.inital_start_date, self.inital_end_date)
+        
+        # Create a DataFrame to store daily shares
+        dates = pd.date_range(self.inital_start_date, self.inital_end_date)
+        
+        # Initialize the first day's shares
+        prev_shares = {symbol: 0 for symbol in symbols}
+        
+        # Fill in daily shares for all dates
+        for date in dates:
+            date_str = date.strftime('%Y-%m-%d')
+            if date_str in self.daily_shares:
+                # Update with new share counts
+                prev_shares.update(self.daily_shares[date_str])
+            
+            # Calculate total value for this day
+            total_value = self.cash
+            
+            # Find the closest date in daily_values
+            date_val = date.date()
+            closest_idx = daily_values.index.get_indexer([date_val], method='nearest')[0]
+            closest_date = daily_values.index[closest_idx]
+            
+            total_value += sum(prev_shares[symbol] * float(daily_values.loc[closest_date, symbol]) 
+                              for symbol in symbols)
+
+
+            self.daily_values.loc[date_val] = {
                 'portfolio_value': total_value,
                 'cash': self.cash
             }
+        
+        print(self.daily_values)
 
     def next_month(self):
         print(f"Date: {self.start_date}")
         self.cash += self.monthly_investment
-        purchases = run_trading_system(self.rules, self.start_date)
-        # print(f"\nAvailable cash: ${self.cash:.2f}")
-        
-        for symbol, percentage in purchases.items():
-            df = load_historical_data(symbol, self.start_date)
-            price = df['close'].iloc[-1]
-            available_cash = self.cash
-            if available_cash < 0:
-                continue  # Skip if we don't have enough cash
-                
-            shares = (available_cash - self.min_cash) * percentage / price
+        transactions = run_trading_system(self.rules, self.start_date)
+        print(f"Transactions: {transactions}")
 
-            if shares * price > 5:
-                shares = round(shares, 3)
-                
-            if shares > 0:  # Only buy if we have at least some shares
-                self.buy(symbol, price, shares)
-        
+
+        # get buy transactions
+        for symbol, percentage in transactions['buy'].items():
+            df = load_historical_data(symbol, self.start_date)
+            closest_date = df.index.get_indexer([self.start_date], method='nearest')[0]
+            price = df['adj_close'].iloc[closest_date]
+
+            shares = (self.cash - self.min_cash) * percentage / price
+            self.buy(symbol, price, shares)
+
+        for symbol, percentage in transactions['sell'].items():
+            if symbol in self.shares:
+                df = load_historical_data(symbol, self.start_date)
+                closest_date = df.index.get_indexer([self.start_date], method='nearest')[0]
+                price = df['adj_close'].iloc[closest_date]
+                shares = self.shares[symbol] * percentage
+                self.sell(symbol, price, shares)
+            
         print(f"Cash Remaining: ${self.cash:.2f}")
         print(f"--------------\n")
         
@@ -211,41 +269,50 @@ class Portfolio:
         self.end_date += relativedelta(months=1)
         for symbol, shares in self.shares.items():
             df = load_historical_data(symbol, self.end_date)
-            price = df['close'].iloc[-1]
+            price = df['adj_close'].iloc[-1]
             total_value += shares * price
         return total_value
     
     def spy_stats(self):
         """Calculate SPY comparison statistics"""
-        if len(self.shares) == 0:
-            return {
-                'spy_values': pd.DataFrame(),
-                'spy_final_value': 0,
-                'spy_initial_value': 0
-            }
 
         spy_data = load_daily_values(('SPY',), self.inital_start_date, self.inital_end_date)
         spy_data['SPY'] = spy_data['SPY'].astype(float)
             
-        # Calculate SPY portfolio value (if we had invested everything in SPY)
-        spy_shares = self.starting_capital / spy_data['SPY'].iloc[0]  # Initial shares bought
+        # Get first available date's price
+        first_price = spy_data['SPY'].iloc[0]
+        spy_shares = self.starting_capital / first_price  # Initial shares bought
         spy_portfolio_value = spy_shares * spy_data['SPY']
         
         # If there are monthly investments, add them
         if self.monthly_investment > 0:
-            # Calculate monthly dates between start and end
-            monthly_dates = pd.date_range(self.inital_start_date, self.inital_end_date, freq='M')
-            for date in monthly_dates:
-                if date in spy_data.index:
-                    additional_shares = self.monthly_investment / spy_data.loc[date, 'SPY']
-                    spy_shares += additional_shares
-                    # Update all future values to reflect the new shares
-                    spy_portfolio_value[date:] = spy_shares * spy_data['SPY'][date:]
+            # Use 'ME' instead of 'M' and convert dates to Timestamp
+                        # Use 'MS' (Month Start) instead of 'ME' (Month End)
+            monthly_dates = pd.date_range(
+                pd.Timestamp(self.inital_start_date), 
+                pd.Timestamp(self.inital_end_date), 
+                freq='MS'
+            )
+            
+            print(monthly_dates)
+            for target_date in monthly_dates:
+                # Convert target_date to same type as index
+                target_date = pd.Timestamp(target_date)
+                
+                # Find closest date
+                loc = spy_data.index.get_indexer([target_date], method='nearest')[0]
+                closest_date = spy_data.index[loc]
+                
+                additional_shares = self.monthly_investment / spy_data.loc[closest_date, 'SPY']
+                spy_shares += additional_shares
+                # Update all future values to reflect the new shares
+                spy_portfolio_value[closest_date:] = spy_shares * spy_data['SPY'][closest_date:]
         
+
+        # print(spy_portfolio_value)
         return {
             'spy_values': spy_portfolio_value,
             'spy_final_value': float(spy_portfolio_value.iloc[-1]),
-            'spy_initial_value': float(spy_portfolio_value.iloc[0])
         }
 
     def get_total_stats(self):
@@ -255,7 +322,6 @@ class Portfolio:
         
         # Get SPY comparison stats
         spy_data = self.spy_stats()
-        
         # Combine all stats
         total_stats = {
             'portfolio_stats': portfolio_stats.to_dict(),
@@ -268,11 +334,18 @@ class Portfolio:
     def plot(self):
         """Plot portfolio performance vs SPY"""
         stats = self.get_total_stats()
-        
         # Create the plot
         plt.figure(figsize=(12, 6))
-        self.daily_values['portfolio_value'].plot(label=f'Portfolio: ${stats["spy_stats"]["spy_final_value"]:,.2f}')
-        stats['spy_stats']['spy_values'].plot(label=f'SPY: ${stats["spy_stats"]["spy_final_value"]:,.2f}')
+        
+        # Set the y-axis formatter to use comma separator and prevent scientific notation
+        ax = plt.gca()
+        ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: '${:,.2f}'.format(x)))
+        
+        # print(self.daily_values)
+        # print(stats['spy_stats']['spy_values'])
+
+        self.daily_values['portfolio_value'].plot(label='Portfolio: ${:,.2f}'.format(self.get_value()))
+        stats['spy_stats']['spy_values'].plot(label='SPY: ${:,.2f}'.format(stats["spy_stats"]["spy_final_value"]))
         
         plt.title('Portfolio Value Comparison')
         plt.xlabel('Date')
@@ -283,12 +356,12 @@ class Portfolio:
 
 if __name__ == "__main__":
     start = time.time()
-    start_date = datetime(2019, 1, 1)
+    start_date = datetime(2024, 1, 1)
     # end_date = datetime(2022, 1, 1)
     end_date = datetime.now()
 
-    starting_capital = 10000
-    monthly_investment = 0
+    starting_capital = 1000
+    monthly_investment = 100
 
     rules = load_rules('rules.json')
 
