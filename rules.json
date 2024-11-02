@@ -1,5 +1,5 @@
 {
-  "name": "NASDAQ Mean Reversion",
+  "name": "SPY Long-Short Rotation Strategy",
   "rules": {
     "type": "condition",
     "indicator": {
@@ -14,10 +14,19 @@
     "if_true": [
       {
         "type": "weight",
+        "weight_type": "all_sell",
+        "assets": [
+          {
+            "symbol": "SQQQ"
+          }
+        ]
+      },
+      {
+        "type": "weight",
         "weight_type": "equal_buy",
         "assets": [
           {
-            "symbol": "SPY"
+            "symbol": "TQQQ"
           }
         ]
       }
@@ -25,10 +34,19 @@
     "if_false": [
       {
         "type": "weight",
+        "weight_type": "all_sell",
+        "assets": [
+          {
+            "symbol": "TQQQ"
+          }
+        ]
+      },
+      {
+        "type": "weight",
         "weight_type": "equal_buy",
         "assets": [
           {
-            "symbol": "SPY"
+            "symbol": "SQQQ"
           }
         ]
       }

@@ -118,15 +118,19 @@ def process_node(node, end_date, transactions):
         
         if condition_result:
             print(colored("Condition is True, taking true branch", 'green'))
+            # Process all actions in the true branch
             if node['if_true']:
-                process_node(node['if_true'][0], end_date, transactions)
+                for action in node['if_true']:
+                    process_node(action, end_date, transactions)
         else:
             print(colored("Condition is False, taking false branch", 'red'))
+            # Process all actions in the false branch
             if node['if_false']:
-                process_node(node['if_false'][0], end_date, transactions)
+                for action in node['if_false']:
+                    process_node(action, end_date, transactions)
                 
     elif node_type == 'weight':
-        execute_weight_action(node, end_date, transactions)  # Added end_date parameter
+        execute_weight_action(node, end_date, transactions)
     else:
         raise ValueError(f"Unknown node type: {node_type}")
 

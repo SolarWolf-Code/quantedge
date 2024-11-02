@@ -39,7 +39,7 @@ class Portfolio:
     def get_previous_shares(self, date, symbol):
         if len(self.portfolio_shares_history) > 0:
             previous_date = sorted(self.portfolio_shares_history.keys())[-1]
-            return self.portfolio_shares_history[previous_date][symbol]
+            return self.portfolio_shares_history[previous_date].get(symbol, 0)
         return 0
 
     def buy(self, symbol, price, quantity, date):
@@ -57,9 +57,6 @@ class Portfolio:
         if symbol not in self.portfolio_shares_history[date.date()]:
             self.portfolio_shares_history[date.date()][symbol] = 0
         self.portfolio_shares_history[date.date()][symbol] += quantity + previous_shares
-
-        print(self.portfolio_shares_history[date.date()])
-
 
         print(f"{termcolor.colored('Bought', 'green')} {termcolor.colored(symbol, 'magenta')} {quantity:.2f} shares @ ${price:.2f}")
 
@@ -125,7 +122,10 @@ class Portfolio:
             # 'Martin Ratio': self.calculate_martin_ratio(df, daily_rf_rate),
             'Beta': self.calculate_beta(df, spy_df),
         }
-        return stats
+
+        # conver to dataframe
+        stats_df = pd.DataFrame(stats, index=[0])
+        return stats_df
 
     def calculate_beta(self, df, spy_df):
         return df['Portfolio Value'].pct_change().corr(spy_df['SPY Value'].pct_change())
@@ -168,7 +168,6 @@ class Portfolio:
         current_date = self.start_date
         # get valid trading days
         trading_days = get_trading_days()
-        # print(trading_days)
 
         while current_date <= self.end_date:
             if current_date + relativedelta(months=1) > datetime.now(): # stop if the next month is in the future. this might not be correct
@@ -182,7 +181,7 @@ class Portfolio:
                     if len(self.spy_shares_history) > 0:
                         previous_day = sorted(self.spy_shares_history.keys())[-1]
                         self.spy_shares_history[current_date.date()] = self.spy_shares_history[previous_day]
-                        self.portfolio_shares_history[current_date.date()] = self.portfolio_shares_history[previous_day]
+                        self.portfolio_shares_history[current_date.date()] = self.portfolio_shares_history.get(previous_day, {})
                     else:
                         self.spy_shares_history[current_date.date()] = 0
                         self.portfolio_shares_history[current_date.date()] = {}
@@ -190,8 +189,6 @@ class Portfolio:
             current_date += relativedelta(days=1)
         
         self.get_daily_values()
-
-        print(self.stats())
 
 
     def spy_buy_and_hold(self, date):
@@ -208,7 +205,6 @@ class Portfolio:
         if len(self.spy_shares_history) > 0:
             previous_date = sorted(self.spy_shares_history.keys())[-1]
             previous_shares = self.spy_shares_history[previous_date]
-            # print(f"PREVIOUS SHARES: {previous_shares}")
         self.spy_shares_history[date.date()] = previous_shares + shares
 
         # subtract cash from spy
@@ -219,14 +215,9 @@ class Portfolio:
         self.cash += self.monthly_investment
         transactions = run_trading_system(self.rules, date)
 
-        # get buy transactions
-        for symbol, percentage in transactions['buy'].items():
-            df = load_historical_data(symbol, date)
-            closest_date = df.index.get_indexer([date], method='nearest')[0]
-            price = df['adj_close'].iloc[closest_date]
-            shares = (self.cash - self.min_cash) * percentage / price
-            self.buy(symbol, price, shares, date)
+        print(transactions)
 
+        # get buy transactions
         for symbol, percentage in transactions['sell'].items():
             if symbol in self.shares:
                 df = load_historical_data(symbol, date)
@@ -234,6 +225,14 @@ class Portfolio:
                 price = df['adj_close'].iloc[closest_date]
                 shares = self.shares[symbol].shares * percentage
                 self.sell(symbol, price, shares, date)
+
+        for symbol, percentage in transactions['buy'].items():
+            df = load_historical_data(symbol, date)
+            closest_date = df.index.get_indexer([date], method='nearest')[0]
+            price = df['adj_close'].iloc[closest_date]
+            shares = (self.cash - self.min_cash) * percentage / price
+            self.buy(symbol, price, shares, date)
+
         
         
         # update current shres
@@ -242,16 +241,16 @@ class Portfolio:
         print(f"--------------\n")
 
     def get_daily_values(self): # TODO: fix this. the shares are only being account for at the end of the backtest.
-        symbols = set(list(self.shares.keys()))
+        # need to get all symbols in portfolio_shares_history
+        symbols = set([symbol for date in self.portfolio_shares_history for symbol in self.portfolio_shares_history[date]])
         symbols.add('SPY')
         if len(symbols) == 0:
             return
         daily_values = load_daily_values(tuple(sorted(symbols)), self.inital_start_date, self.inital_end_date)
 
-        # print(self.portfolio_shares_history)
-
         for date in self.portfolio_shares_history:
             total_value = 0
+            # print(f"[{date}] PORTFOLIO SHARES: {self.portfolio_shares_history[date]}")
             for symbol in self.portfolio_shares_history[date]:
                 total_value += self.portfolio_shares_history[date][symbol] * float(daily_values.loc[date][symbol])
             self.portfolio_value_history[date] = total_value
@@ -262,14 +261,9 @@ class Portfolio:
             shares = self.spy_shares_history[date]
             self.spy_value_history[date] = shares * float(price)
 
-        # for date in self.spy_value_history:
-        #     print(date, self.spy_shares_history[date], self.portfolio_shares_history[date])
-        #     print("--------------")
-
 
     def plot(self):
         """Plot portfolio performance vs SPY"""
-        # stats = self.get_total_stats()
         # Create the plot
         plt.figure(figsize=(12, 6))
         
@@ -277,8 +271,6 @@ class Portfolio:
         ax = plt.gca()
         ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: '${:,.2f}'.format(x)))
         
-        # print(self.daily_values)
-        # print(stats['spy_stats']['spy_values'])
 
         # conver to dataframe
         portfolio_df = pd.DataFrame(self.portfolio_value_history.items(), columns=['Date', 'Portfolio Value'])
@@ -290,9 +282,6 @@ class Portfolio:
         portfolio_df = portfolio_df.set_index('Date')
         spy_df = spy_df.set_index('Date')
 
-
-        # print(portfolio_df)
-        # print(spy_df)
 
         portfolio_df['Portfolio Value'].plot(label='Portfolio: ${:,.2f}'.format(portfolio_df['Portfolio Value'].iloc[-1]))
         spy_df['SPY Value'].plot(label='SPY: ${:,.2f}'.format(spy_df['SPY Value'].iloc[-1]))
@@ -307,7 +296,6 @@ class Portfolio:
 if __name__ == "__main__":
     start = time.time()
     start_date = datetime(2024, 1, 1)
-    # end_date = datetime(2022, 1, 1)
     end_date = datetime.now()
 
     starting_capital = 1000
@@ -320,4 +308,5 @@ if __name__ == "__main__":
     
     end = time.time()
     print(f"Time taken: {end - start}")
+    print(portfolio.stats())
     portfolio.plot()
