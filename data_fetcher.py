@@ -11,6 +11,20 @@ def check_symbol_exists(symbol):
     except Exception as e:
         return False
 
+def get_trading_days():
+    # loads SPY and returns trading days
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT date FROM prices WHERE symbol = 'SPY'
+            """)
+            trading_days = cur.fetchall()
+
+    # put in list format
+    trading_days = [day[0] for day in trading_days]
+    return trading_days
+
+
 @lru_cache(maxsize=128)
 def get_earliest_date(symbol):
     with get_db_connection() as conn:
@@ -85,34 +99,22 @@ def _load_historical_data(symbol, end_date=None):
     return df
 
 @lru_cache(maxsize=128)
-def load_daily_values(symbols, start_date, end_date):
+def load_daily_values(symbols, date):
     # Convert dates to strings and symbols tuple to make it hashable
     cache_key_symbols = tuple(sorted(symbols))  # Sort to ensure consistent caching
-    cache_key_start = start_date.isoformat()
-    cache_key_end = end_date.isoformat()
-    return _load_daily_values(cache_key_symbols, start_date, end_date)
+    cache_key_date = date.isoformat()
+    return _load_daily_values(cache_key_symbols, cache_key_date)
 
-def _load_daily_values(symbols, start_date, end_date):
+def _load_daily_values(symbols, date):
     with get_db_connection() as conn:
-        # try:
         with conn.cursor() as cur:
-            # Now get all the price data
             cur.execute("""
                 SELECT date, symbol, adj_close
                 FROM prices
-                WHERE symbol IN %s AND date >= %s AND date <= %s
-            """, (tuple(symbols), start_date, end_date))
+                WHERE symbol IN %s AND date = %s
+                        
+            """, (tuple(symbols), date))
             data = cur.fetchall()
-        # except Exception as e:
-        #     # check if symbols exist
-        #     for symbol in symbols:
-        #         if not check_symbol_exists(symbol):
-        #             raise ValueError(f"Symbol {symbol} does not exist")
-        #     else:
-        #         # fetch data from yahoo finance
-        #         for symbol in symbols:
-        #             get_price_data_as_dataframe(symbol)
-        #         data = _load_daily_values(symbols, start_date, end_date)
 
     df = pd.DataFrame(data, columns=['date', 'symbol', 'adj_close'])
     # Pivot the DataFrame to have symbols as columns
