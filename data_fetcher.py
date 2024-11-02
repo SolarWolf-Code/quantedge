@@ -99,21 +99,22 @@ def _load_historical_data(symbol, end_date=None):
     return df
 
 @lru_cache(maxsize=128)
-def load_daily_values(symbols, date):
+def load_daily_values(symbols, start_date, end_date):
     # Convert dates to strings and symbols tuple to make it hashable
     cache_key_symbols = tuple(sorted(symbols))  # Sort to ensure consistent caching
-    cache_key_date = date.isoformat()
-    return _load_daily_values(cache_key_symbols, cache_key_date)
+    cache_key_start_date = start_date.isoformat()
+    cache_key_end_date = end_date.isoformat()
+    return _load_daily_values(cache_key_symbols, cache_key_start_date, cache_key_end_date)
 
-def _load_daily_values(symbols, date):
+def _load_daily_values(symbols, start_date, end_date):
     with get_db_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("""
                 SELECT date, symbol, adj_close
                 FROM prices
-                WHERE symbol IN %s AND date = %s
+                WHERE symbol IN %s AND date BETWEEN %s AND %s
                         
-            """, (tuple(symbols), date))
+            """, (tuple(symbols), start_date, end_date))
             data = cur.fetchall()
 
     df = pd.DataFrame(data, columns=['date', 'symbol', 'adj_close'])
