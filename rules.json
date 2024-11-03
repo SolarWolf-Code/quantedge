@@ -1,52 +1,151 @@
 {
-  "name": "SPY Long-Short Rotation Strategy",
+  "name": "Enhanced Market Rotation Strategy - Monthly",
   "rules": {
     "type": "condition",
     "indicator": {
-      "name": "cumulative_return",
-      "params": [
-        30
-      ],
-      "symbol": "QQQ"
+      "name": "macd",
+      "params": [26, 52, 9],
+      "symbol": "SPY"
     },
-    "comparator": "<=",
-    "value": 0.05,
+    "comparator": ">",
+    "value": 0,
     "if_true": [
       {
-        "type": "weight",
-        "weight_type": "all_sell",
-        "assets": [
+        "type": "condition",
+        "indicator": {
+          "name": "cumulative_return",
+          "params": [60],
+          "symbol": "SPY"
+        },
+        "comparator": ">",
+        "value": 0.05,
+        "if_true": [
           {
-            "symbol": "SQQQ"
+            "type": "weight",
+            "weight_type": "all_sell",
+            "assets": [
+              {"symbol": "SH"},
+              {"symbol": "SHV"},
+              {"symbol": "TLT"}
+            ]
+          },
+          {
+            "type": "weight",
+            "weight_type": "weighted_buy",
+            "assets": [
+              {
+                "symbol": "TQQQ",
+                "weight": 0.7
+              },
+              {
+                "symbol": "UVXY",
+                "weight": 0.1
+              },
+              {
+                "symbol": "TLT",
+                "weight": 0.2
+              }
+            ]
           }
-        ]
-      },
-      {
-        "type": "weight",
-        "weight_type": "equal_buy",
-        "assets": [
+        ],
+        "if_false": [
           {
-            "symbol": "TQQQ"
+            "type": "weight",
+            "weight_type": "all_sell",
+            "assets": [
+              {"symbol": "TQQQ"},
+              {"symbol": "UVXY"}
+            ]
+          },
+          {
+            "type": "weight",
+            "weight_type": "weighted_buy",
+            "assets": [
+              {
+                "symbol": "UPRO",
+                "weight": 0.6
+              },
+              {
+                "symbol": "TLT",
+                "weight": 0.2
+              },
+              {
+                "symbol": "UVXY",
+                "weight": 0.2
+              }
+            ]
           }
         ]
       }
     ],
     "if_false": [
       {
-        "type": "weight",
-        "weight_type": "all_sell",
-        "assets": [
+        "type": "condition",
+        "indicator": {
+          "name": "cumulative_return",
+          "params": [40],
+          "symbol": "SPY"
+        },
+        "comparator": "<",
+        "value": -0.05,
+        "if_true": [
           {
-            "symbol": "TQQQ"
+            "type": "weight",
+            "weight_type": "all_sell",
+            "assets": [
+              {"symbol": "TQQQ"},
+              {"symbol": "UPRO"},
+              {"symbol": "SPY"},
+              {"symbol": "QQQ"}
+            ]
+          },
+          {
+            "type": "weight",
+            "weight_type": "weighted_buy",
+            "assets": [
+              {
+                "symbol": "SQQQ",
+                "weight": 0.4
+              },
+              {
+                "symbol": "SPXU",
+                "weight": 0.3
+              },
+              {
+                "symbol": "TLT",
+                "weight": 0.3
+              }
+            ]
           }
-        ]
-      },
-      {
-        "type": "weight",
-        "weight_type": "equal_buy",
-        "assets": [
+        ],
+        "if_false": [
           {
-            "symbol": "SQQQ"
+            "type": "weight",
+            "weight_type": "all_sell",
+            "assets": [
+              {"symbol": "TQQQ"},
+              {"symbol": "UPRO"},
+              {"symbol": "SQQQ"},
+              {"symbol": "SPXU"}
+            ]
+          },
+          {
+            "type": "weight",
+            "weight_type": "weighted_buy",
+            "assets": [
+              {
+                "symbol": "SH",
+                "weight": 0.5
+              },
+              {
+                "symbol": "TLT",
+                "weight": 0.3
+              },
+              {
+                "symbol": "SHV",
+                "weight": 0.2
+              }
+            ]
           }
         ]
       }

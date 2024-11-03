@@ -7,9 +7,12 @@ from termcolor import colored
 indicator_map = {
     'cumulative_return': cumulative_return,
     'sma_price': sma_price,
+    'rsi': rsi,
     'macd': macd,
     'ema': ema,
     'fibonacci': fibonacci_retracement,
+    'atr': atr,
+    'atr_percent': atr_percent,
 }
 
 def evaluate_indicator(indicator_data, end_date):
