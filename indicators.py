@@ -2,14 +2,13 @@ import pandas as pd
 import pandas_ta as ta
 from data_fetcher import load_historical_data
 
-# def rsi(symbol, start_date, period):
-#     end_date = datetime.now().date()
-#     start_date = end_date - timedelta(days=period * 2)
-#     df = load_historical_data(symbol, start_date, end_date)
-#     result = df.ta.rsi(length=period).iloc[-1]
-#     if isinstance(result, pd.Series):
-#         return float(result.iloc[0])
-#     return float(result)
+def rsi(symbol, end_date, period):
+    df = load_historical_data(symbol, end_date)
+    if len(df) < period:
+        print(f"Warning: Not enough data points for {symbol} RSI calculation. Need {period} days, but only have {len(df)}. Skipping...")
+        return None
+    result = df.ta.rsi(length=period).iloc[-1]
+    return result
 
 def ema(symbol, end_date, period):
     df = load_historical_data(symbol, end_date)
@@ -119,3 +118,29 @@ def cumulative_return(symbol, end_date, period):
     end_price = df['close'].iloc[-1]
     result = ((end_price - start_price) / start_price)
     return result
+
+def atr(symbol, end_date, period):
+    df = load_historical_data(symbol, end_date)
+    if len(df) < period:
+        print(f"Warning: Not enough data points for {symbol} ATR calculation. Need {period} days, but only have {len(df)}. Skipping...")
+        return None
+    result = df.ta.atr(length=period).iloc[-1]
+    return result
+
+def atr_percent(symbol, end_date, period):
+    """
+    Calculate ATR as a percentage of price to normalize across different price levels
+    """
+    df = load_historical_data(symbol, end_date)
+    if len(df) < period:
+        print(f"Warning: Not enough data points for {symbol} ATR percent calculation. Need {period} days, but only have {len(df)}. Skipping...")
+        return None
+    
+    # Calculate ATR
+    atr_value = df.ta.atr(length=period)
+    # Get current price
+    current_price = df['close']
+    # Calculate ATR as percentage of price
+    atr_pct = (atr_value / current_price)
+    
+    return atr_pct.iloc[-1]

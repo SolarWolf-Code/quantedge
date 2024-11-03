@@ -29,20 +29,16 @@ class Portfolio:
         self.inital_end_date = end_date
         self.portfolio_value_history = {}
         self.portfolio_shares_history = {}
+        self.portfolio_cash_history = {}
 
         self.spy_value_history = {}
         self.spy_shares_history = {}
         self.spy_shares = 0
         self.spy_cash = starting_capital
+        self.spy_cash_history = {}
 
 
-    def get_previous_shares(self, date, symbol):
-        if len(self.portfolio_shares_history) > 0:
-            previous_date = sorted(self.portfolio_shares_history.keys())[-1]
-            return self.portfolio_shares_history[previous_date].get(symbol, 0)
-        return 0
-
-    def buy(self, symbol, price, quantity, date):
+    def buy(self, symbol, price, quantity, date, previous_shares):
         cost = price * quantity
         self.cash -= cost
         if symbol not in self.shares:
@@ -51,28 +47,28 @@ class Portfolio:
             self.shares[symbol].shares += quantity
             self.shares[symbol].price = (self.shares[symbol].price * self.shares[symbol].shares + price * quantity) / (self.shares[symbol].shares + quantity)
 
-        previous_shares = self.get_previous_shares(date, symbol)
-        if date not in self.portfolio_shares_history:
-            self.portfolio_shares_history[date.date()] = {}
-        if symbol not in self.portfolio_shares_history[date.date()]:
-            self.portfolio_shares_history[date.date()][symbol] = 0
-        self.portfolio_shares_history[date.date()][symbol] += quantity + previous_shares
+
+        # update portfolio shares history using previous shares
+        existing_shares = previous_shares.get(symbol, 0)
+        if date.date() not in self.portfolio_shares_history:
+            self.portfolio_shares_history[date.date()] = previous_shares
+        self.portfolio_shares_history[date.date()][symbol] = existing_shares + quantity
+        # print(self.portfolio_shares_history)
+        # print("-----")
 
         print(f"{termcolor.colored('Bought', 'green')} {termcolor.colored(symbol, 'magenta')} {quantity:.2f} shares @ ${price:.2f}")
 
-    def sell(self, symbol, price, quantity, date):
+    def sell(self, symbol, price, quantity, date, previous_shares):
         self.cash += price * quantity
         if self.shares[symbol].shares == quantity:
             del self.shares[symbol]
         else:
             self.shares[symbol].shares -= quantity
             
-        previous_shares = self.get_previous_shares(date, symbol)
-        if date not in self.portfolio_shares_history:
-            self.portfolio_shares_history[date.date()] = {}
-        if symbol not in self.portfolio_shares_history[date.date()]:
-            self.portfolio_shares_history[date.date()][symbol] = 0
-        self.portfolio_shares_history[date.date()][symbol] -= quantity + previous_shares
+        existing_shares = previous_shares.get(symbol, 0)
+        if date.date() not in self.portfolio_shares_history:
+            self.portfolio_shares_history[date.date()] = previous_shares
+        self.portfolio_shares_history[date.date()][symbol] = existing_shares - quantity
 
         print(f"{termcolor.colored('Sold', 'red')} {termcolor.colored(symbol, 'magenta')} {quantity:.2f} shares @ ${price:.2f}")
 
@@ -90,7 +86,7 @@ class Portfolio:
         return False
 
     def current_holdings(self):
-        df = pd.DataFrame(list(self.shares.items()), columns=['Symbol', 'Shares'])
+        df = pd.DataFrame([(symbol, share.shares) for symbol, share in self.shares.items()], columns=['Symbol', 'Shares'])
         return df
 
     def stats(self):
@@ -99,6 +95,7 @@ class Portfolio:
         # Convert Date column to datetime and set as index
         df['Date'] = pd.to_datetime(df['Date'])
         df = df.set_index('Date')
+        # print(df)
         
         # same for spy
         spy_df = pd.DataFrame(list(self.spy_value_history.items()), columns=['Date', 'SPY Value'])
@@ -182,10 +179,14 @@ class Portfolio:
                         previous_day = sorted(self.spy_shares_history.keys())[-1]
                         self.spy_shares_history[current_date.date()] = self.spy_shares_history[previous_day]
                         self.portfolio_shares_history[current_date.date()] = self.portfolio_shares_history.get(previous_day, {})
+                        self.spy_cash_history[current_date.date()] = self.spy_cash_history[previous_day]
+                        self.portfolio_cash_history[current_date.date()] = self.portfolio_cash_history[previous_day]
                     else:
                         self.spy_shares_history[current_date.date()] = 0
                         self.portfolio_shares_history[current_date.date()] = {}
-
+                        self.spy_cash_history[current_date.date()] = self.spy_cash
+                        self.portfolio_cash_history[current_date.date()] = self.cash
+                        
             current_date += relativedelta(days=1)
         
         self.get_daily_values()
@@ -209,34 +210,37 @@ class Portfolio:
 
         # subtract cash from spy
         self.spy_cash -= price * shares
+        self.spy_cash_history[date.date()] = self.spy_cash
 
     def next_month(self, date):
         print(f"Running for {date}")
         self.cash += self.monthly_investment
         transactions = run_trading_system(self.rules, date)
 
-        print(transactions)
 
-        # get buy transactions
+        if len(self.portfolio_shares_history) > 0:
+            previous_date = sorted(self.portfolio_shares_history.keys())[-1]
+            previous_shares = self.portfolio_shares_history[previous_date].copy()
+        else:
+            previous_shares = {}
+
         for symbol, percentage in transactions['sell'].items():
             if symbol in self.shares:
                 df = load_historical_data(symbol, date)
                 closest_date = df.index.get_indexer([date], method='nearest')[0]
                 price = df['adj_close'].iloc[closest_date]
                 shares = self.shares[symbol].shares * percentage
-                self.sell(symbol, price, shares, date)
+                self.sell(symbol, price, shares, date, previous_shares)
 
         for symbol, percentage in transactions['buy'].items():
             df = load_historical_data(symbol, date)
             closest_date = df.index.get_indexer([date], method='nearest')[0]
             price = df['adj_close'].iloc[closest_date]
             shares = (self.cash - self.min_cash) * percentage / price
-            self.buy(symbol, price, shares, date)
+            self.buy(symbol, price, shares, date, previous_shares)
 
         
-        
-        # update current shres
-            
+        self.portfolio_cash_history[date.date()] = self.cash
         print(f"Cash Remaining: ${self.cash:.2f}")
         print(f"--------------\n")
 
@@ -253,13 +257,13 @@ class Portfolio:
             # print(f"[{date}] PORTFOLIO SHARES: {self.portfolio_shares_history[date]}")
             for symbol in self.portfolio_shares_history[date]:
                 total_value += self.portfolio_shares_history[date][symbol] * float(daily_values.loc[date][symbol])
-            self.portfolio_value_history[date] = total_value
+            self.portfolio_value_history[date] = total_value + self.portfolio_cash_history[date]
 
         spy_daily_values = daily_values.loc[:, 'SPY']
         for date in self.spy_shares_history:
             price = spy_daily_values.loc[date]
             shares = self.spy_shares_history[date]
-            self.spy_value_history[date] = shares * float(price)
+            self.spy_value_history[date] = shares * float(price) + self.spy_cash_history[date]
 
 
     def plot(self):
@@ -270,7 +274,6 @@ class Portfolio:
         # Set the y-axis formatter to use comma separator and prevent scientific notation
         ax = plt.gca()
         ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: '${:,.2f}'.format(x)))
-        
 
         # conver to dataframe
         portfolio_df = pd.DataFrame(self.portfolio_value_history.items(), columns=['Date', 'Portfolio Value'])
@@ -295,7 +298,7 @@ class Portfolio:
 
 if __name__ == "__main__":
     start = time.time()
-    start_date = datetime(2024, 1, 1)
+    start_date = datetime(2012, 1, 1)
     end_date = datetime.now()
 
     starting_capital = 1000
@@ -309,4 +312,9 @@ if __name__ == "__main__":
     end = time.time()
     print(f"Time taken: {end - start}")
     print(portfolio.stats())
+    print(portfolio.current_holdings())
     portfolio.plot()
+    # for date in portfolio.portfolio_shares_history:
+    #     print(f"[{date}] {portfolio.portfolio_shares_history[date]}")
+
+
