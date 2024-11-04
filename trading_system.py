@@ -13,6 +13,8 @@ indicator_map = {
     'fibonacci': fibonacci_retracement,
     'atr': atr,
     'atr_percent': atr_percent,
+    'vix': vix,
+    'vix_change': vix_change,
 }
 
 def evaluate_indicator(indicator_data, end_date):

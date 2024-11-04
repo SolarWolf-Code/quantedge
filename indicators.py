@@ -144,3 +144,31 @@ def atr_percent(symbol, end_date, period):
     atr_pct = (atr_value / current_price)
     
     return atr_pct.iloc[-1]
+
+def vix(symbol, end_date, period=None):
+    """
+    Get the VIX value for a given date. If period is specified, returns the average over that period.
+    """
+    df = load_historical_data('^VIX', end_date)
+    if period:
+        if len(df) < period:
+            print(f"Warning: Not enough data points for VIX calculation. Need {period} days, but only have {len(df)}. Skipping...")
+            return None
+        result = df['close'].rolling(window=period).mean().iloc[-1]
+    else:
+        result = df['close'].iloc[-1]
+    return result
+
+def vix_change(symbol, end_date, period):
+    """
+    Calculate how much VIX has changed over the last N days
+    Returns the absolute point change in VIX
+    """
+    df = load_historical_data('^VIX', end_date)
+    if len(df) < period:
+        print(f"Warning: Not enough data points for VIX change calculation. Need {period} days, but only have {len(df)}. Skipping...")
+        return None
+    
+    current_vix = df['close'].iloc[-1]
+    past_vix = df['close'].iloc[-period]
+    return current_vix - past_vix

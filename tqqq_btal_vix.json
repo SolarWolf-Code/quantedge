@@ -1,0 +1,132 @@
+{
+  "name": "Enhanced BTAL-TQQQ Strategy with VIX Signals - Drawdown Protected",
+  "rules": {
+    "type": "condition",
+    "indicator": {
+      "name": "vix",
+      "params": [],
+      "symbol": "^VIX"
+    },
+    "comparator": "<",
+    "value": 20,
+    "if_true": [
+      {
+        "type": "condition",
+        "indicator": {
+          "name": "cumulative_return",
+          "params": [20],
+          "symbol": "TQQQ"
+        },
+        "comparator": ">",
+        "value": -0.1,
+        "if_true": [
+          {
+            "type": "weight",
+            "weight_type": "weighted_buy",
+            "assets": [
+              {
+                "symbol": "TQQQ",
+                "weight": 0.85
+              },
+              {
+                "symbol": "BTAL",
+                "weight": 0.15
+              }
+            ]
+          }
+        ],
+        "if_false": [
+          {
+            "type": "weight",
+            "weight_type": "weighted_buy",
+            "assets": [
+              {
+                "symbol": "TQQQ",
+                "weight": 0.6
+              },
+              {
+                "symbol": "BTAL",
+                "weight": 0.4
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "if_false": [
+      {
+        "type": "condition",
+        "indicator": {
+          "name": "vix_change",
+          "params": [10],
+          "symbol": "^VIX"
+        },
+        "comparator": ">",
+        "value": 10,
+        "if_true": [
+          {
+            "type": "weight",
+            "weight_type": "all_sell",
+            "assets": [
+              {"symbol": "TQQQ"}
+            ]
+          },
+          {
+            "type": "weight",
+            "weight_type": "weighted_buy",
+            "assets": [
+              {
+                "symbol": "BTAL",
+                "weight": 0.8
+              },
+              {
+                "symbol": "TLT",
+                "weight": 0.2
+              }
+            ]
+          }
+        ],
+        "if_false": [
+          {
+            "type": "condition",
+            "indicator": {
+              "name": "vix_change",
+              "params": [5],
+              "symbol": "^VIX"
+            },
+            "comparator": "<",
+            "value": -8,
+            "if_true": [
+              {
+                "type": "weight",
+                "weight_type": "weighted_buy",
+                "assets": [
+                  {
+                    "symbol": "TQQQ",
+                    "weight": 1.0
+                  }
+                ]
+              }
+            ],
+            "if_false": [
+              {
+                "type": "weight",
+                "weight_type": "weighted_buy",
+                "assets": [
+                  {
+                    "symbol": "TQQQ",
+                    "weight": 0.5
+                  },
+                  {
+                    "symbol": "BTAL",
+                    "weight": 0.5
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

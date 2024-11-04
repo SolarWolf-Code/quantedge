@@ -89,13 +89,15 @@ class Portfolio:
         df = pd.DataFrame([(symbol, share.shares) for symbol, share in self.shares.items()], columns=['Symbol', 'Shares'])
         return df
 
-    def stats(self):
+    def stats(self, value_history=None):
         """Calculate various portfolio performance metrics"""
-        df = pd.DataFrame(list(self.portfolio_value_history.items()), columns=['Date', 'Portfolio Value'])
+
+        if value_history is None:
+            value_history = self.portfolio_value_history
+        df = pd.DataFrame(list(value_history.items()), columns=['Date', 'Portfolio Value'])
         # Convert Date column to datetime and set as index
         df['Date'] = pd.to_datetime(df['Date'])
         df = df.set_index('Date')
-        # print(df)
         
         # same for spy
         spy_df = pd.DataFrame(list(self.spy_value_history.items()), columns=['Date', 'SPY Value'])
@@ -123,6 +125,10 @@ class Portfolio:
         # conver to dataframe
         stats_df = pd.DataFrame(stats, index=[0])
         return stats_df
+    
+    def spy_stats(self):
+        """Calculate various SPY performance metrics"""
+        return self.stats(self.spy_value_history)
 
     def calculate_beta(self, df, spy_df):
         return df['Portfolio Value'].pct_change().corr(spy_df['SPY Value'].pct_change())
@@ -311,7 +317,11 @@ if __name__ == "__main__":
     
     end = time.time()
     print(f"Time taken: {end - start}")
+    print("Portfolio Stats:")
     print(portfolio.stats())
+    print("SPY Stats:")
+    print(portfolio.spy_stats())
+    print("Current Holdings:")
     print(portfolio.current_holdings())
     portfolio.plot()
     # for date in portfolio.portfolio_shares_history:
