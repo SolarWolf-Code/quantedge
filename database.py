@@ -1,5 +1,4 @@
 import os
-import psycopg2
 from psycopg2 import pool
 from contextlib import contextmanager
 from dotenv import load_dotenv
@@ -59,3 +58,5 @@ def save_price_data(symbol, df):
                 ))
 
             conn.commit()
+
+    

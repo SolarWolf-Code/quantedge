@@ -61,7 +61,7 @@ def get_price_data_as_dataframe(symbol):
 def load_historical_data(symbol, end_date=None):
     # Convert end_date to string if it exists, since datetime objects aren't hashable
     cache_key_date = end_date.isoformat() if end_date else None
-    return _load_historical_data(symbol, end_date)
+    return _load_historical_data(symbol, cache_key_date)
 
 def _load_historical_data(symbol, end_date=None):
     with get_db_connection() as conn:
@@ -118,6 +118,13 @@ def _load_daily_values(symbols, start_date, end_date):
     df_pivoted = df.pivot(index='date', columns='symbol', values='adj_close')
     return df_pivoted
 
+def get_all_tickers():
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT symbol FROM symbols
+            """)
+            data = cur.fetchall()
+            tickers = [ticker[0] for ticker in data]
+            return tickers
 
-if __name__ == "__main__":
-    print(check_symbol_exists("asdasd"))
