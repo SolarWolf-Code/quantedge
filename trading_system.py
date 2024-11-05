@@ -3,6 +3,7 @@ from indicators import *
 from data_fetcher import get_earliest_date
 from transaction_types import *
 from termcolor import colored
+import operator
 
 indicator_map = {
     'cumulative_return': cumulative_return,
@@ -15,12 +16,31 @@ indicator_map = {
     'atr_percent': atr_percent,
     'vix': vix,
     'vix_change': vix_change,
+    'sma_cross': sma_cross,
 }
 
 def evaluate_indicator(indicator_data, end_date):
     """Evaluate an indicator and return its value"""
     name = indicator_data['name']
     params = indicator_data['params']
+    
+    # Special handling for composite indicators
+    if name == 'and':
+        if 'inputs' not in indicator_data:
+            raise ValueError("'and' indicator requires 'inputs' field")
+        
+        results = []
+        for input_indicator in indicator_data['inputs']:
+            result = evaluate_indicator(input_indicator, end_date)
+            if result is None:
+                return None
+            results.append(result)
+        return results
+    
+    # Regular indicator processing
+    if 'symbol' not in indicator_data:
+        raise ValueError(f"Indicator {name} missing required 'symbol' field")
+    
     symbol = indicator_data['symbol']
     
     # Check earliest available date
@@ -38,31 +58,48 @@ def evaluate_indicator(indicator_data, end_date):
     return indicator_func(symbol, end_date, *params)
 
 def evaluate_condition(condition, end_date):
-    """Evaluate a condition node and return True/False"""
+    """Evaluate a condition and return True or False"""
     indicator_value = evaluate_indicator(condition['indicator'], end_date)
-    
-    # Skip condition if indicator value is None (data not available)
     if indicator_value is None:
-        print(colored("Skipping condition due to unavailable data", 'red'))
-        return False
+        return None
         
     comparator = condition['comparator']
-    target_value = condition['value']
+    threshold = condition['value']
     
-    print(f"Comparing {colored(indicator_value, 'yellow')} {colored(comparator, 'red')} {colored(target_value, 'yellow')}")
+    # Handle composite indicator results
+    if isinstance(indicator_value, list):
+        if isinstance(threshold, list):
+            # Multiple thresholds for multiple values
+            if len(indicator_value) != len(threshold):
+                raise ValueError("Mismatched number of values for composite indicator comparison")
+            results = []
+            for val, thresh in zip(indicator_value, threshold):
+                results.append(compare_values(val, thresh, comparator))
+            return all(results)  # For 'and' indicator, all conditions must be true
+        else:
+            # Single threshold for all values
+            results = []
+            for val in indicator_value:
+                results.append(compare_values(val, threshold, comparator))
+            return all(results)
+        
+    return compare_values(indicator_value, threshold, comparator)
+
+def compare_values(value, threshold, comparator):
+    """Compare a single value against a threshold using the given comparator"""
+    if value is None:
+        return None
+        
+    ops = {
+        '>': operator.gt,
+        '<': operator.lt,
+        '>=': operator.ge,
+        '<=': operator.le,
+        '==': operator.eq,
+        '!=': operator.ne
+    }
     
-    if comparator == '<':
-        return indicator_value < target_value
-    elif comparator == '>':
-        return indicator_value > target_value
-    elif comparator == '==':
-        return indicator_value == target_value
-    elif comparator == '>=':
-        return indicator_value >= target_value
-    elif comparator == '<=':
-        return indicator_value <= target_value
-    else:
-        raise ValueError(f"Unknown comparator: {comparator}")
+    return ops[comparator](value, threshold)
 
 def execute_weight_action(node, end_date, transactions):
     print(f"Executing weight action: {colored(node['weight_type'], 'green')}")

@@ -172,3 +172,19 @@ def vix_change(symbol, end_date, period):
     current_vix = df['close'].iloc[-1]
     past_vix = df['close'].iloc[-period]
     return current_vix - past_vix
+
+def sma_cross(symbol, end_date, fast_period, slow_period):
+    """
+    Calculate if fast SMA is above slow SMA
+    Returns the ratio of fast SMA to slow SMA
+    """
+    df = load_historical_data(symbol, end_date)
+    if len(df) < max(fast_period, slow_period):
+        print(f"Warning: Not enough data points for {symbol} SMA cross calculation. Need {max(fast_period, slow_period)} days, but only have {len(df)}. Skipping...")
+        return None
+    
+    fast_sma = df['close'].rolling(window=fast_period).mean()
+    slow_sma = df['close'].rolling(window=slow_period).mean()
+    
+    # Return ratio of fast to slow SMA (> 1 means bullish, < 1 means bearish)
+    return (fast_sma / slow_sma).iloc[-1]
