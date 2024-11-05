@@ -1,5 +1,7 @@
 import os
 import psycopg2
+from psycopg2 import pool
+from contextlib import contextmanager
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -13,8 +15,21 @@ DB_PARAMS = {
     'port': os.getenv('DB_PORT')
 }
 
+# Create a connection pool
+connection_pool = pool.SimpleConnectionPool(
+    minconn=1,
+    maxconn=20,  # Increased max connections
+    **DB_PARAMS
+)
+
+@contextmanager
 def get_db_connection():
-    return psycopg2.connect(**DB_PARAMS)
+    """Context manager for database connections"""
+    conn = connection_pool.getconn()
+    try:
+        yield conn
+    finally:
+        connection_pool.putconn(conn)
 
 def save_price_data(symbol, df):
     with get_db_connection() as conn:
