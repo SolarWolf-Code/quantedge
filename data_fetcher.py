@@ -87,14 +87,10 @@ def _load_historical_data(symbol, end_date=None):
         df = load_historical_data(symbol, end_date)
         if end_date:
             df = df[(df.index.date <= end_date.date())]
-
     else:
         df = pd.DataFrame(data, columns=['date', 'open', 'high', 'low', 'close', 'adj_close', 'volume'])
         df.set_index('date', inplace=True)
         df.index = pd.to_datetime(df.index)
-        numeric_columns = ['open', 'high', 'low', 'close', 'adj_close']
-        df[numeric_columns] = df[numeric_columns].astype(float)
-        df['volume'] = df['volume'].astype(int)
     
     return df
 

@@ -8,12 +8,12 @@ import numpy as np
 import time
 import matplotlib.pyplot as plt
 from dataclasses import dataclass
-
+import decimal
 
 @dataclass
 class Share:
-    shares: float
-    price: float
+    shares: decimal.Decimal
+    price: decimal.Decimal
 
 class Portfolio:
     def __init__(self, starting_capital, monthly_investment, rules, end_date, start_date):
@@ -37,6 +37,19 @@ class Portfolio:
         self.spy_cash = starting_capital
         self.spy_cash_history = {}
 
+        # Add new instance variable
+        self.monthly_trading_days = self._precompute_monthly_trading_days(get_trading_days())
+
+    def _precompute_monthly_trading_days(self, trading_days):
+        """Precompute first and last trading days for each month"""
+        monthly_days = {}
+        for day in trading_days:
+            key = (day.year, day.month)
+            if key not in monthly_days:
+                monthly_days[key] = {'first': day, 'last': day}
+            else:
+                monthly_days[key]['last'] = day
+        return monthly_days
 
     def buy(self, symbol, price, quantity, date, previous_shares):
         cost = price * quantity
@@ -78,11 +91,10 @@ class Portfolio:
         Check if the date is the first or last trading day of that month
         """
         if date.date() in trading_days:
-            if first_of_month:
-                last_trading_day = [day for day in trading_days if day.month == date.month and day.year == date.year][0]
-            else:
-                last_trading_day = [day for day in trading_days if day.month == date.month and day.year == date.year][-1]
-            return date.date() == last_trading_day
+            key = (date.year, date.month)
+            if key in self.monthly_trading_days:
+                target_day = self.monthly_trading_days[key]['first' if first_of_month else 'last']
+                return date.date() == target_day
         return False
 
     def current_holdings(self):
@@ -97,11 +109,14 @@ class Portfolio:
         df = pd.DataFrame(list(value_history.items()), columns=['Date', 'Portfolio Value'])
         # Convert Date column to datetime and set as index
         df['Date'] = pd.to_datetime(df['Date'])
+        # convert to decimal.Decimal
+        df['Portfolio Value'] = df['Portfolio Value'].astype(float)
         df = df.set_index('Date')
         
         # same for spy
         spy_df = pd.DataFrame(list(self.spy_value_history.items()), columns=['Date', 'SPY Value'])
         spy_df['Date'] = pd.to_datetime(spy_df['Date'])
+        spy_df['SPY Value'] = spy_df['SPY Value'].astype(float)
         spy_df = spy_df.set_index('Date')
 
         # Risk-free rate (using 2% annual as example)
@@ -242,6 +257,8 @@ class Portfolio:
             df = load_historical_data(symbol, date)
             closest_date = df.index.get_indexer([date], method='nearest')[0]
             price = df['adj_close'].iloc[closest_date]
+            # convert percentage to decimal.Decimal
+            percentage = decimal.Decimal(percentage)
             shares = (self.cash - self.min_cash) * percentage / price
             self.buy(symbol, price, shares, date, previous_shares)
 
@@ -262,14 +279,14 @@ class Portfolio:
             total_value = 0
             # print(f"[{date}] PORTFOLIO SHARES: {self.portfolio_shares_history[date]}")
             for symbol in self.portfolio_shares_history[date]:
-                total_value += self.portfolio_shares_history[date][symbol] * float(daily_values.loc[date][symbol])
-            self.portfolio_value_history[date] = total_value + self.portfolio_cash_history[date]
+                total_value += decimal.Decimal(self.portfolio_shares_history[date][symbol]) * decimal.Decimal(daily_values.loc[date][symbol])
+            self.portfolio_value_history[date] = total_value + decimal.Decimal(self.portfolio_cash_history[date])
 
         spy_daily_values = daily_values.loc[:, 'SPY']
         for date in self.spy_shares_history:
             price = spy_daily_values.loc[date]
             shares = self.spy_shares_history[date]
-            self.spy_value_history[date] = shares * float(price) + self.spy_cash_history[date]
+            self.spy_value_history[date] = shares * decimal.Decimal(price) + decimal.Decimal(self.spy_cash_history[date])
 
 
     def plot(self):
@@ -286,7 +303,9 @@ class Portfolio:
         spy_df = pd.DataFrame(self.spy_value_history.items(), columns=['Date', 'SPY Value'])
 
         portfolio_df['Date'] = pd.to_datetime(portfolio_df['Date'])
+        portfolio_df['Portfolio Value'] = portfolio_df['Portfolio Value'].astype(float)
         spy_df['Date'] = pd.to_datetime(spy_df['Date'])
+        spy_df['SPY Value'] = spy_df['SPY Value'].astype(float)
 
         portfolio_df = portfolio_df.set_index('Date')
         spy_df = spy_df.set_index('Date')
