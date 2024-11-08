@@ -250,6 +250,8 @@ class Portfolio:
                 df = load_historical_data(symbol, date)
                 closest_date = df.index.get_indexer([date], method='nearest')[0]
                 price = df['adj_close'].iloc[closest_date]
+                # convert percentage to decimal.Decimal
+                percentage = decimal.Decimal(percentage)
                 shares = self.shares[symbol].shares * percentage
                 self.sell(symbol, price, shares, date, previous_shares)
 
