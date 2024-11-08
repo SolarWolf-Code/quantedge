@@ -117,14 +117,3 @@ def _load_daily_values(symbols, start_date, end_date):
     # Pivot the DataFrame to have symbols as columns
     df_pivoted = df.pivot(index='date', columns='symbol', values='adj_close')
     return df_pivoted
-
-def get_all_tickers():
-    with get_db_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT symbol FROM symbols
-            """)
-            data = cur.fetchall()
-            tickers = [ticker[0] for ticker in data]
-            return tickers
-

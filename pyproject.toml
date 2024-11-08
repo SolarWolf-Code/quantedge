@@ -15,6 +15,7 @@ dependencies = [
     "snakeviz>=2.2.0",
     "matplotlib>=3.9.2",
     "fastapi[all]>=0.115.4",
+    "apscheduler>=3.10.4",
 ]
 
 [tool.uv.sources]
