@@ -218,7 +218,7 @@ class Portfolio:
         # buy spy
         df = load_historical_data('SPY', date)
         closest_date = df.index.get_indexer([date], method='nearest')[0]
-        price = df['adj_close'].iloc[closest_date]
+        price = df['close'].iloc[closest_date]
         shares = (self.spy_cash - self.min_cash) / price
         self.spy_shares += shares
         
@@ -249,7 +249,7 @@ class Portfolio:
             if symbol in self.shares:
                 df = load_historical_data(symbol, date)
                 closest_date = df.index.get_indexer([date], method='nearest')[0]
-                price = df['adj_close'].iloc[closest_date]
+                price = df['close'].iloc[closest_date]
                 # convert percentage to decimal.Decimal
                 percentage = decimal.Decimal(percentage)
                 shares = self.shares[symbol].shares * percentage
@@ -258,7 +258,7 @@ class Portfolio:
         for symbol, percentage in transactions['buy'].items():
             df = load_historical_data(symbol, date)
             closest_date = df.index.get_indexer([date], method='nearest')[0]
-            price = df['adj_close'].iloc[closest_date]
+            price = df['close'].iloc[closest_date]
             # convert percentage to decimal.Decimal
             percentage = decimal.Decimal(percentage)
             shares = (self.cash - self.min_cash) * percentage / price
@@ -325,7 +325,7 @@ class Portfolio:
 
 if __name__ == "__main__":
     start = time.time()
-    start_date = datetime(2012, 1, 1)
+    start_date = datetime(2024, 1, 1)
     end_date = datetime.now()
 
     starting_capital = 1000
@@ -338,10 +338,10 @@ if __name__ == "__main__":
     
     end = time.time()
     print(f"Time taken: {end - start}")
-    print("Portfolio Stats:")
-    print(portfolio.stats())
     print("SPY Stats:")
     print(portfolio.spy_stats())
+    print("Portfolio Stats:")
+    print(portfolio.stats())
     print("Current Holdings:")
     print(portfolio.current_holdings())
     portfolio.plot()

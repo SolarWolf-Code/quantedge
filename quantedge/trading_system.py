@@ -11,7 +11,7 @@ indicator_map = {
     'rsi': rsi,
     'macd': macd,
     'ema': ema,
-    'fibonacci': fibonacci_retracement,
+    # 'fibonacci': fibonacci_retracement,
     'atr': atr,
     'atr_percent': atr_percent,
     'vix': vix,

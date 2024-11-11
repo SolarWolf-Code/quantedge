@@ -1,12 +1,13 @@
 import pandas as pd
 import pandas_ta as ta
-from data_fetcher import load_historical_data
+from quantedge.data_fetcher import load_historical_data
 
 def rsi(symbol, end_date, period):
     df = load_historical_data(symbol, end_date)
     if len(df) < period:
         print(f"Warning: Not enough data points for {symbol} RSI calculation. Need {period} days, but only have {len(df)}. Skipping...")
         return None
+
     result = df.ta.rsi(length=period).iloc[-1]
     return result
 
@@ -27,7 +28,6 @@ def macd(symbol, end_date, fast_period, slow_period, signal_period):
     return result
 
 def sma_price(symbol, end_date, period):
-    print(f"Calculating SMA for {symbol} with period {period} and end date {end_date}")
     df = load_historical_data(symbol, end_date)
     if len(df) < period:
         print(f"Warning: Not enough data points for {symbol} SMA price calculation. Need {period} days, but only have {len(df)}. Skipping...")
@@ -35,16 +35,16 @@ def sma_price(symbol, end_date, period):
     result = df.ta.sma(length=period).iloc[-1]
     return result
 
-def fibonacci_retracement(symbol, end_date, period):
-    df = load_historical_data(symbol, end_date)
-    if len(df) < period:
-        print(f"Warning: Not enough data points for {symbol} fibonacci retracement calculation. Need {period} days, but only have {len(df)}. Skipping...")
-        return None
-    high = df['high'].rolling(window=period).max().iloc[-1]
-    low = df['low'].rolling(window=period).min().iloc[-1]
-    current = df['close'].iloc[-1]
-    retracement = ((high - current) / (high - low))
-    return retracement
+# def fibonacci_retracement(symbol, end_date, period):
+#     df = load_historical_data(symbol, end_date)
+#     if len(df) < period:
+#         print(f"Warning: Not enough data points for {symbol} fibonacci retracement calculation. Need {period} days, but only have {len(df)}. Skipping...")
+#         return None
+#     high = df['high'].rolling(window=period).max().iloc[-1]
+#     low = df['low'].rolling(window=period).min().iloc[-1]
+#     current = float(df['close'].iloc[-1])
+#     retracement = ((high - current) / (high - low))
+#     return retracement
 
 def adx(symbol, end_date, period):
     df = load_historical_data(symbol, end_date)
@@ -67,7 +67,11 @@ def stochastic_oscillator(symbol, end_date, period):
     if len(df) < period:
         print(f"Warning: Not enough data points for {symbol} stochastic oscillator calculation. Need {period} days, but only have {len(df)}. Skipping...")
         return None
-    result = df.ta.stoch(k=period, d=3, smooth_k=3).iloc[-1].iloc[0]
+    
+    # convert to float
+    df['close'] = df['close'].astype(float)
+
+    result = df.ta.stoch(k=period, d=3, smooth_k=3).iloc[-1].iloc[0] # this is fast OSC
     return result
 
 def sma_return(symbol, end_date, period):
@@ -124,6 +128,13 @@ def atr(symbol, end_date, period):
     if len(df) < period:
         print(f"Warning: Not enough data points for {symbol} ATR calculation. Need {period} days, but only have {len(df)}. Skipping...")
         return None
+
+    # convert open, high, low, close to float
+    df['open'] = df['open'].astype(float)
+    df['high'] = df['high'].astype(float)
+    df['low'] = df['low'].astype(float)
+    df['close'] = df['close'].astype(float)
+    
     result = df.ta.atr(length=period).iloc[-1]
     return result
 
@@ -136,6 +147,12 @@ def atr_percent(symbol, end_date, period):
         print(f"Warning: Not enough data points for {symbol} ATR percent calculation. Need {period} days, but only have {len(df)}. Skipping...")
         return None
     
+    # convert open, high, low, close to float
+    df['open'] = df['open'].astype(float)
+    df['high'] = df['high'].astype(float)
+    df['low'] = df['low'].astype(float)
+    df['close'] = df['close'].astype(float)
+
     # Calculate ATR
     atr_value = df.ta.atr(length=period)
     # Get current price
@@ -157,6 +174,7 @@ def vix(symbol, end_date, period=None):
         result = df['close'].rolling(window=period).mean().iloc[-1]
     else:
         result = df['close'].iloc[-1]
+    
     return result
 
 def vix_change(symbol, end_date, period):
@@ -171,7 +189,7 @@ def vix_change(symbol, end_date, period):
     
     current_vix = df['close'].iloc[-1]
     past_vix = df['close'].iloc[-period]
-    return current_vix - past_vix
+    return float(current_vix - past_vix)
 
 def sma_cross(symbol, end_date, fast_period, slow_period):
     """
